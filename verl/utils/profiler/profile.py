@@ -62,7 +62,8 @@ class Profiler:
             self.prof = torch.profiler.profile(
                 activities=[
                     torch.profiler.ProfilerActivity.CPU,
-                    torch.profiler.ProfilerActivity.CUDA,
+                    # torch.profiler.ProfilerActivity.CUDA,
+                    torch.profiler.ProfilerActivity.MUSA,
                 ],
                 schedule=torch.profiler.schedule(
                     wait=max(self.tool_config.step_start - 1, 0),

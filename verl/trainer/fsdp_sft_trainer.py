@@ -49,7 +49,7 @@ from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path, get_
 from verl.utils.checkpoint.fsdp_checkpoint_manager import FSDPCheckpointManager
 from verl.utils.dataset import SFTDataset
 from verl.utils.dataset.multiturn_sft_dataset import MultiTurnSFTDataset
-from verl.utils.device import get_device_id, get_device_name, is_cuda_available, is_npu_available
+from verl.utils.device import get_device_id, get_device_name, is_cuda_available, is_npu_available, is_musa_avaiable
 from verl.utils.distributed import destroy_global_process_group, initialize_global_process_group
 from verl.utils.fs import copy_to_local
 from verl.utils.fsdp_utils import (
@@ -236,6 +236,7 @@ class FSDPSFTTrainer:
                 torch_dtype=torch_dtype,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=trust_remote_code,
+                device_map = 'musa'
             )
 
             if self.use_remove_padding or self.config.ulysses_sequence_parallel_size > 1:
@@ -391,7 +392,8 @@ class FSDPSFTTrainer:
                 shift_labels = shift_labels.view(-1)
                 # Enable model parallelism
                 shift_labels = shift_labels.to(shift_logits.device)
-                loss = loss_fct(shift_logits, shift_labels)
+                # loss = loss_fct(shift_logits, shift_labels)
+                loss = loss_fct(shift_logits.cpu(), shift_labels.cpu()).to(shift_logits.device)
                 loss = loss * loss_mask.to(loss.device)
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
@@ -434,7 +436,8 @@ class FSDPSFTTrainer:
                 # Compute loss locally then aggregate
                 logits_rmpad = output.logits.squeeze(0)
                 input_ids_rmpad_rolled = input_ids_rmpad_rolled.to(logits_rmpad.device)
-                loss = loss_fct(logits_rmpad, input_ids_rmpad_rolled)
+                # loss = loss_fct(logits_rmpad, input_ids_rmpad_rolled)
+                loss = loss_fct(logits_rmpad.cpu(), input_ids_rmpad_rolled.cpu()).to(input_ids_rmpad_rolled.device)
                 # Gather and unpad for sequence parallelism
                 loss = gather_outputs_and_unpad(loss, gather_dim=0, unpad_dim=0, padding_size=pad_size)
 

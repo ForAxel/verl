@@ -492,4 +492,4 @@ def load_state_dict_to_megatron_gptmodel(state_dict, wrapped_models, config, par
         broadcast_params(wrapped_model)
     pass
     get_torch_device().empty_cache()
-    print_rank_0(f"loading megatron ckpt done, time elapsed {time.time() - start_time}s")
+    print_rank_0(f"loader loading megatron ckpt done, time elapsed {time.time() - start_time}s")

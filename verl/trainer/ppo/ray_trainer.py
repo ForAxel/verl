@@ -61,6 +61,9 @@ from verl.utils.seqlen_balancing import calculate_workload, get_seqlen_balanced_
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
 
+import os, logging
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 @dataclass
 class ResourcePoolManager:
@@ -103,8 +106,10 @@ class ResourcePoolManager:
     def _check_resource_available(self):
         """Check if the resource pool can be satisfied in this ray cluster."""
         node_available_resources = ray._private.state.available_resources_per_node()
+        print('check available resources', node_available_resources)
         node_available_gpus = {
-            node: node_info.get("GPU", 0) if "GPU" in node_info else node_info.get("NPU", 0)
+            # node: node_info.get("GPU", 0) if "GPU" in node_info else node_info.get("NPU", 0)
+            node: node_info.get("GPU", 8) if "GPU" in node_info else node_info.get("NPU", 8)
             for node, node_info in node_available_resources.items()
         }
 
@@ -738,7 +743,9 @@ class RayPPOTrainer:
         wg_kwargs["device_name"] = self.device_name
 
         for resource_pool, class_dict in self.resource_pool_to_cls.items():
+            print(f'init_workers class dict {class_dict.keys()}') # DEBUG
             worker_dict_cls = create_colocated_worker_cls(class_dict=class_dict)
+            logger.warning("create_colocated_worker_cls success") # DEBUG
             wg_dict = self.ray_worker_group_cls(
                 resource_pool=resource_pool,
                 ray_cls_with_init=worker_dict_cls,
@@ -751,10 +758,20 @@ class RayPPOTrainer:
             self.critic_wg = all_wg[str(Role.Critic)]
             self.critic_wg.init_model()
 
-        if self.use_reference_policy and not self.ref_in_actor:
-            self.ref_policy_wg = all_wg[str(Role.RefPolicy)]
-            self.ref_policy_wg.init_model()
+        logger.warning("TMPPPPPPPP") # DEBUG
 
+        # TODO ATTN 这里卡住
+        if self.use_reference_policy and not self.ref_in_actor:
+            logger.warning(f'before ref init {torch.musa.current_device()}') # DEBUG
+            self.ref_policy_wg = all_wg[str(Role.RefPolicy)]
+            logger.warning("self.ref_policy_wg try to init model") # DEBUG
+            logger.warning(f"str(Role.RefPolicy) is: {str(Role.RefPolicy)}") # RayWorkerGroup
+            logger.warning(f"all_wg keys: {all_wg.keys()}") # DEBUG
+            logger.warning(f"self.ref_policy_wg is: {self.ref_policy_wg}") # DEBUG
+            logger.warning(f"self.ref_policy_wg.init_model is: {self.ref_policy_wg.init_model}") # DEBUG
+            self.ref_policy_wg.init_model()
+            # assert 1==2 # ATTN DEBUG 只有在分布式的情况下才会有问题
+        
         self.rm_wg = None
         # initalization of rm_wg will be deprecated in the future
         if self.use_rm:
@@ -763,7 +780,10 @@ class RayPPOTrainer:
 
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg[str(Role.ActorRollout)]
+        logger.warning(f'before actor init {torch.musa.current_device()}') # DEBUG
         self.actor_rollout_wg.init_model()
+
+        
 
         # create async rollout manager and request scheduler
         self.async_rollout_mode = False
@@ -774,6 +794,7 @@ class RayPPOTrainer:
             self.async_rollout_manager = AgentLoopManager(
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
+        # assert 1==2 # DEBUG
 
     def _save_checkpoint(self):
         from verl.utils.fs import local_mkdir_safe

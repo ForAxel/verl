@@ -486,7 +486,7 @@ def load_megatron_gptmodel_weights(config, model_config, parallel_model, params_
     _, model, state_dict, is_value_model = _load_hf_model(config, model_config, is_value_model)
 
     from verl.models.mcore.loader import load_state_dict_to_megatron_gptmodel
-
+    print(f"Try to run load_state_dict_to_megatron_gptmodel") # debug
     load_state_dict_to_megatron_gptmodel(
         state_dict=state_dict,
         wrapped_models=parallel_model,
@@ -494,6 +494,7 @@ def load_megatron_gptmodel_weights(config, model_config, parallel_model, params_
         params_dtype=params_dtype,
         is_value_model=is_value_model,
     )
+    print(f"load_state_dict_to_megatron_gptmodel success!") # DEBUG
     del state_dict, model
 
 
@@ -540,13 +541,14 @@ def load_mcore_dist_weights(parallel_model, dist_weight_path, is_value_model=Fal
     # strict = StrictHandling.IGNORE_ALL if is_value_model else StrictHandling.ASSUME_OK_UNEXPECTED
     strict = StrictHandling.ASSUME_OK_UNEXPECTED
     for model in parallel_model:
+        # print(f"model.py load_mcore_dist_weights model is: {model}") # DEBUG
         ssd = unwrap_model(model).sharded_state_dict()
         if is_value_model:
             for k in list(ssd.keys()):
                 if "output_layer" in k:
                     ssd.pop(k)
         dist_checkpointing.load(ssd, dist_weight_path, strict=strict)
-
+    print(f"model.py load_mcore_dist_weights success") # DEBUG
     return
 
 

@@ -216,6 +216,21 @@ class vLLMRollout(BaseRollout):
             else:
                 logger.warning(f"cudagraph_capture_sizes must be a list, but got {cudagraph_capture_sizes}")
 
+        import os
+        vllm_block_size = int(os.environ.get('vllm_block_size',64))
+
+        print(f'config.free_cache_engine is {config.free_cache_engine}')
+        print(f'tensor_parallel_size is {tensor_parallel_size}')
+        print(f'config.dtype is {config.dtype}')
+        print(f'config.gpu_memory_utilization is {config.gpu_memory_utilization}')
+        print(f'max_model_len is {max_model_len}')
+        print(f'config.max_num_seqs si {config.max_num_seqs}')
+        print(f'load_format is {load_format}')
+        print(f'max_num_batched_tokens is {max_num_batched_tokens}')
+        print(f'compilation_config is {compilation_config}')
+        print(f'lora_kwargs is {lora_kwargs}')
+        print(f'engine_kwargs is {engine_kwargs}')
+
         self.inference_engine = LLM(
             model=model_path,
             enable_sleep_mode=config.free_cache_engine,
@@ -231,10 +246,12 @@ class vLLMRollout(BaseRollout):
             load_format=load_format,
             disable_log_stats=config.disable_log_stats,
             max_num_batched_tokens=max_num_batched_tokens,
-            enable_chunked_prefill=config.enable_chunked_prefill,
-            enable_prefix_caching=config.enable_prefix_caching,
+            # enable_chunked_prefill=config.enable_chunked_prefill,
+            # enable_prefix_caching=config.enable_prefix_caching,
             trust_remote_code=trust_remote_code,
             seed=config.get("seed", 0),
+            worker_cls = 'vllm_musa.v0.musa_worker.MTGPUWorker',#'vllm_musa.worker.musa_worker.MTGPUWorker' ',
+            block_size = vllm_block_size,
             **compilation_config,
             **self.lora_kwargs,
             **engine_kwargs,
@@ -372,7 +389,7 @@ class vLLMRollout(BaseRollout):
                 prompts=vllm_inputs,  # because we have already convert it to prompt token id
                 sampling_params=self.sampling_params,
                 lora_request=lora_requests,
-                use_tqdm=False,
+                use_tqdm=True,#False,
             )
 
             # TODO(sgm): disable logprob when recompute_log_prob is enable

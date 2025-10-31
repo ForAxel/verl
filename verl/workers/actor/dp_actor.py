@@ -98,6 +98,60 @@ class DataParallelPPOActor(BasePPOActor):
 
             multi_modal_inputs = extract_multi_modal_inputs(micro_batch["multi_modal_inputs"])
 
+        def remove_left_padding(
+            input_ids: torch.Tensor,
+            attention_mask: torch.Tensor,
+            position_ids: torch.Tensor,
+            pre_process: bool = True,
+        ):
+            """
+            Remove left padding from input_ids, attention_mask and position_ids
+            return new_input_ids, new_attention_mask, new_position_ids
+            """
+            assert attention_mask.ndim == 2
+            assert position_ids.ndim == 2
+            batch_size = input_ids.shape[0]
+            shape = list(input_ids.shape)  # batch_size, seq_len,...
+            seq_lens = attention_mask.sum(dim=1)
+            seq_len = seq_lens.max().item()
+            seq_len = input_ids.shape[1]
+            shape[1] = seq_len
+            if pre_process:
+                new_input_ids = torch.zeros(dtype=input_ids.dtype, device=input_ids.device, size=shape)
+            new_attention_mask = torch.zeros(dtype=attention_mask.dtype, device=attention_mask.device, size=(batch_size, seq_len))
+            new_position_ids = torch.zeros(dtype=position_ids.dtype, device=position_ids.device, size=(batch_size, seq_len))
+            for i in range(batch_size):
+                if pre_process:
+                    new_input_ids[i, : seq_lens[i]] = input_ids[i, attention_mask[i]==1]
+                new_attention_mask[i, : seq_lens[i]] = attention_mask[i, attention_mask[i]==1]
+                new_position_ids[i, : seq_lens[i]] = position_ids[i, attention_mask[i]==1]
+            if pre_process:
+                return new_input_ids, new_attention_mask, new_position_ids
+            else:
+                return input_ids, new_attention_mask, new_position_ids
+
+
+        def recover_left_padding(
+            result,
+            attention_mask: torch.Tensor,
+            original_attention_mask: torch.Tensor,
+            origin_seqlen: int,
+            post_process: bool = True,
+        ):
+            """
+            Recover left padding from result
+            return result
+            """
+            if not post_process:
+                return result
+            shape = list(result.shape)
+            batch_size = shape[0]
+            shape[1] = origin_seqlen
+            new_result = torch.zeros(dtype=result.dtype, device=result.device, size=shape)
+            for i in range(batch_size):
+                new_result[i, original_attention_mask[i] == 1] = result[i, attention_mask[i] == 1]
+            return new_result
+
         with torch.autocast(device_type=self.device_name, dtype=torch.bfloat16):
             input_ids = micro_batch["input_ids"]
             batch_size, seqlen = input_ids.shape
@@ -245,10 +299,11 @@ class DataParallelPPOActor(BasePPOActor):
                     extra_args["temperature"] = temperature
                     extra_args["return_dict"] = True
 
+                new_input_ids, new_attention_mask, new_position_ids = remove_left_padding(input_ids, attention_mask, position_ids)                                               
                 output = self.actor_module(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    position_ids=position_ids,
+                    input_ids=new_input_ids, #input_ids,
+                    attention_mask=new_attention_mask, #attention_mask,
+                    position_ids=new_position_ids, #position_ids,
                     **multi_modal_inputs,
                     use_cache=False,
                     **extra_args,
@@ -260,7 +315,7 @@ class DataParallelPPOActor(BasePPOActor):
 
                 else:
                     logits = output.logits
-
+                    logits = recover_left_padding(logits, new_attention_mask, attention_mask, seqlen)
                     logits.div_(temperature)
                     logits = logits[:, -response_length - 1 : -1, :]  # (bsz, response_length, vocab_size)
                     log_probs = logprobs_from_logits(logits, micro_batch["responses"])

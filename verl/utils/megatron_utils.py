@@ -124,7 +124,13 @@ def get_model(
     # GPU allocation.
     if transformer_config is None or (not transformer_config.use_cpu_initialization):
         for model_module in model:
+            # model_module.to(f"{get_device_name()}:{get_device_id()}")
+            print('get_device_id()',get_device_id())
             model_module.to(f"{get_device_name()}:{get_device_id()}")
+    for model_module in model:
+        print('get_device_id()',get_device_id())
+        model_module.to(f"{get_device_name()}:{get_device_id()}")    
+
 
     # Fp16 conversion.
     config: TransformerConfig = get_model_config(model[0])
@@ -351,7 +357,7 @@ def offload_megatron_model_to_cpu(models):
                 if param.grad is not None:
                     param.grad = param.grad.to("cpu", non_blocking=True)
     gc.collect()
-    get_torch_device().empty_cache()
+    get_torch_device().empty_cache() # ATTN 清空 MUSA 缓存超时
 
 
 @torch.no_grad()

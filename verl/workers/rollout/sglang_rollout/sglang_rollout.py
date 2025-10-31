@@ -351,6 +351,10 @@ class SGLangRollout(BaseRollout):
             visible_devices, os.environ[devices_keyword], self._device_mesh_cpu.get_group("tp")
         )
         self.visible_devices_set = set(",".join(visible_devices).split(","))
+        # DEBUG
+        logger.warning(f"devices_keyword is: {devices_keyword}")
+        logger.warning(f"visible_devices is: {visible_devices}")
+        logger.warning(f"self.visible_devices_set is: {self.visible_devices_set}")     
         os.environ[devices_keyword] = ",".join(sorted(list(self.visible_devices_set), key=int))
 
     def _verify_config(self, model_hf_config):

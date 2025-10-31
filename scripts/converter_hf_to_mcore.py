@@ -424,7 +424,7 @@ def convert_hf_to_mcore(hf_model_path, output_path, use_cpu_initialization=False
         os.environ["MASTER_ADDR"] = "localhost"
         os.environ["MASTER_PORT"] = "12355"
 
-    torch.distributed.init_process_group("nccl")
+    torch.distributed.init_process_group("mccl")
 
     rank = dist.get_rank()
     local_rank = os.getenv("LOCAL_RANK", 0)
@@ -556,6 +556,19 @@ def convert_hf_to_mcore(hf_model_path, output_path, use_cpu_initialization=False
 
 
 if __name__ == "__main__":
+    
+    def apply_global_patch():
+        import os
+        import sys
+        if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa":
+            musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/dist/zhaoping/Code/verl-musa-patch')
+            sys.path.append(musa_patch_path)
+            import musa_patch    
+        else:
+            print('skip musa patch')
+
+    apply_global_patch()
+
     args = _init_args()
     convert_hf_to_mcore(
         args.hf_model_path, args.output_path, args.use_cpu_initialization, args.test, args.trust_remote_code

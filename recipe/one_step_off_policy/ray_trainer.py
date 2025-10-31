@@ -109,7 +109,8 @@ class OneStepOffRayTrainer(RayPPOTrainer):
         val_dataset: Dataset | None = None,
         collate_fn=None,
         train_sampler: Sampler | None = None,
-        device_name="cuda",
+        # device_name="cuda",
+        device_name="musa",
     ):
         """
         Initialize distributed PPO trainer with Ray backend.

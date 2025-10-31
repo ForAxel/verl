@@ -259,7 +259,7 @@ class RLHFDataset(Dataset):
             from verl.utils.dataset.vision_utils import process_image, process_video
 
             raw_prompt = self.processor.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+                messages, add_generation_prompt=True, tokenize=False, enable_thinking=False, **self.apply_chat_template_kwargs
             )
             multi_modal_data = {}
 
@@ -307,7 +307,7 @@ class RLHFDataset(Dataset):
                     "models like GLM can copy chat_template.jinja from instruct models"
                 )
             raw_prompt = self.tokenizer.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+                messages, add_generation_prompt=True, tokenize=False, enable_thinking=False, **self.apply_chat_template_kwargs
             )
             model_inputs = self.tokenizer(raw_prompt, return_tensors="pt", add_special_tokens=False)
             input_ids = model_inputs.pop("input_ids")

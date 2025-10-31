@@ -151,7 +151,7 @@ class MegatronPPOActor(BasePPOActor):
         )
 
         config = get_model_config(self.actor_module[0])
-        print(config)
+        # print(config) # DEBUG ATTN do not print config
         config.finalize_model_grads_func = finalize_model_grads
 
     def _validate_config(self, config) -> None:
@@ -213,6 +213,7 @@ class MegatronPPOActor(BasePPOActor):
             batch_size = input_ids.size(0)
             response = batch["responses"]
             response_length = response.size(1)
+            print(f'data is {data}') # DEBUG
             with torch.no_grad():
                 output = self.forward_backward_batch(
                     data,
@@ -582,6 +583,7 @@ class MegatronPPOActor(BasePPOActor):
 
         # TODO: we may use the new schedule instead
         # for flash-attn: (seq_len, batch_size, hidden_size) = (mbs*seq_len, 1, hidden_size)
+        self.actor_module[0] = self.actor_module[0].musa() # TODO 待优化
         if mpu.get_pipeline_model_parallel_world_size() > 1:
             losses_reduced = forward_backward_func(
                 forward_step_func=forward_step,

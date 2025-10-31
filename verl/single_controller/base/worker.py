@@ -194,6 +194,33 @@ class Worker(WorkerHelper):
         self.__dispatch_dp_rank = {}
         self.__collect_dp_rank = {}
 
+        def apply_global_patch():
+            import os
+            import sys
+            if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa" and os.getenv('MUSA_PATCH_PATH','') != '':
+                musa_patch_path = os.getenv('MUSA_PATCH_PATH','')
+                sys.path.append(musa_patch_path)
+                import musa_patch    
+                print('\n import musa patch success!\n')
+            else:
+                print('\n skip musa patch \n')
+            
+        apply_global_patch()
+        
+        def set_random_seed(seed):
+            import torch
+            import random
+            import numpy as np
+            from transformers import set_seed
+            if seed is not None:
+                set_seed(seed)
+                random.seed(seed)
+                np.random.seed(seed)
+                torch.manual_seed(seed)
+                torch.musa.manual_seed_all(seed)
+                print(f'setting random seed {seed}')
+        set_random_seed(0)
+
     def get_fused_worker_by_name(self, worker_name: str):
         """Get a fused worker by its name.
 
@@ -245,7 +272,7 @@ class Worker(WorkerHelper):
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda_val
             rocr_val = None
 
-        if is_ray_noset_visible_devices:
+        if True: #is_ray_noset_visible_devices:
             # NOTE: Ray will automatically set the *_VISIBLE_DEVICES
             # environment variable for each actor, unless
             # RAY_EXPERIMENTAL_NOSET_*_VISIBLE_DEVICES is set,

@@ -29,6 +29,10 @@ from verl.utils.py_functional import temp_env_var
 
 __all__ = ["Worker"]
 
+import os
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
 
 def get_random_string(length: int) -> str:
     import random
@@ -106,7 +110,8 @@ class RayResourcePool(ResourcePool):
         self.detached = detached
         self.accelerator_type = accelerator_type
 
-    def get_placement_groups(self, strategy="STRICT_PACK", name=None, device_name="cuda"):
+    # def get_placement_groups(self, strategy="STRICT_PACK", name=None, device_name="cuda"):
+    def get_placement_groups(self, strategy="STRICT_PACK", name=None, device_name="musa"):
         if self.pgs is not None:
             return self.pgs
 
@@ -118,6 +123,10 @@ class RayResourcePool(ResourcePool):
             device_name = "NPU"
         elif device_name == "cuda":
             device_name = "GPU"
+        elif device_name == "musa":
+            device_name = "GPU"
+        else:
+            raise NotImplementedError
 
         bundle = {"CPU": self.max_colocate_count}
         if self.use_gpu:
@@ -216,7 +225,8 @@ class RayClassWithInitArgs(ClassWithInitArgs):
         use_gpu: bool = True,
         num_gpus=1,
         sharing_with=None,
-        device_name="cuda",
+        # device_name="cuda",
+        device_name="musa",
     ) -> Any:
         """Create and return a Ray actor with the configured options.
 
@@ -248,6 +258,8 @@ class RayClassWithInitArgs(ClassWithInitArgs):
             options["num_gpus"] = num_gpus
         if use_gpu and device_name == "npu":
             options["resources"] = {"NPU": num_gpus}
+        if use_gpu and device_name == "musa":
+            options["num_gpus"] = num_gpus
 
         if len(self._additional_resource) > 1:
             for k, v in self._additional_resource.items():
@@ -266,7 +278,7 @@ class RayWorkerGroup(WorkerGroup):
     creating and managing groups of Ray actors with specific resource requirements
     and scheduling strategies.
     """
-
+    # TODO ATTN 
     def __init__(
         self,
         resource_pool: RayResourcePool = None,
@@ -300,8 +312,11 @@ class RayWorkerGroup(WorkerGroup):
         # if a WorkerGroup is spawned from Colocate WorkerGroup, this indicates which sub-class is binded to
         # this WorkerGroup.
         self.sub_cls_name = ""
-        self.device_name = kwargs.get("device_name", "cuda")
+        # self.device_name = kwargs.get("device_name", "cuda")
+        self.device_name = kwargs.get("device_name", "musa")
+        logger.warning(f"self.device_name is: {self.device_name}")# DEBUG
         self.profile_steps = kwargs.get("profile_steps", None)
+        logger.warning(f"self.profile_steps is: {self.profile_steps}") # DEBUG
         self.worker_nsight_options = kwargs.get("worker_nsight_options", None)
         self.customized_worker_env = kwargs.get("worker_env", {})
         if self.worker_nsight_options is not None and self.worker_nsight_options["capture-range-end"] is None:
@@ -416,7 +431,9 @@ class RayWorkerGroup(WorkerGroup):
                 cia_name = match.group(1) if match else cia_name  # "ActorClass(Obj)" -> "Obj"
                 name = f"{self.name_prefix}{cia_name}_{pg_idx}:{local_rank}"  # e.g. Worker_2:5
 
-                if self.profile_steps and self.device_name == "cuda":
+                # if self.profile_steps and self.device_name == "cuda":
+                if self.profile_steps and (self.device_name == "cuda" or self.device_name == "musa"):
+                    # assert 3==1 # debug
                     ray_cls_with_init.update_options(
                         {
                             "runtime_env": {
@@ -702,9 +719,9 @@ def _bind_workers_method_to_parent(cls, key, user_defined_cls):
                 async def async_func(self, *args, **kwargs):
                     # dispatch to the actual worker
                     return await getattr(self.worker_dict[key], name)(*args, **kwargs)
-
                 wrapper = async_func if inspect.iscoroutinefunction(method) else func  # noqa: B023
-
+                logger.warning(f"get wrapper success") # DEBUG
+                # assert 1==2 # DEBUG
                 return wrapper
 
             func = generate_function(method_name)
@@ -724,6 +741,8 @@ def _bind_workers_method_to_parent(cls, key, user_defined_cls):
                     setattr(cls, method_name_with_prefix, func)
             except Exception as e:
                 raise ValueError(f"Fail to set method_name {method_name}") from e
+
+            logger.warning(f"has_attr func success") # DEBUG
 
 
 def _unwrap_ray_remote(cls):
@@ -784,6 +803,7 @@ def create_colocated_worker_cls(class_dict: dict[str, RayClassWithInitArgs]):
     for key, user_defined_cls in cls_dict.items():
         user_defined_cls = _unwrap_ray_remote(user_defined_cls)
         _bind_workers_method_to_parent(WorkerDict, key, user_defined_cls)
+        logger.warning(f"_bind_workers_method_to_parent success") # DEBUG
 
     remote_cls = ray.remote(WorkerDict)
     remote_cls = RayClassWithInitArgs(cls=remote_cls)

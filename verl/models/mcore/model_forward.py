@@ -23,6 +23,7 @@ from .util import (
     preprocess_packed_seqs_no_padding,
 )
 
+import torch
 
 def model_forward_gen(vision_model: bool = False):
     def model_forward(
@@ -41,6 +42,9 @@ def model_forward_gen(vision_model: bool = False):
         )  # vision model always needs pre_process
         post_process = unwrap_model(model).post_process
 
+        #HACK: musa flash-attn don't support verlen pakcing now
+        support_varlen = False
+
         model_kwargs = {}
         if "pixel_values" in multi_modal_inputs:
             model_kwargs["pixel_values"] = multi_modal_inputs["pixel_values"].to(input_ids.device)
@@ -48,7 +52,15 @@ def model_forward_gen(vision_model: bool = False):
             model_kwargs["image_grid_thw"] = multi_modal_inputs["image_grid_thw"].to(input_ids.device)
 
         batch_size, seq_len = attention_mask.shape[:2]
-        input_ids_rmpad, packed_seq_params = preprocess_packed_seqs(input_ids, attention_mask, pre_process=pre_process)
+        # input_ids_rmpad, packed_seq_params = preprocess_packed_seqs(input_ids, attention_mask, pre_process=pre_process)
+        
+        if not support_varlen:
+            #new_input_ids, attention_mask_r, new_position_ids = remove_left_padding(input_ids, attention_mask, position_ids, sequence_parallel, pre_process=pre_process)
+            attention_mask_ = torch.full_like(attention_mask, True)
+            input_ids_rmpad, packed_seq_params = preprocess_packed_seqs(input_ids, attention_mask_, pre_process=pre_process)
+        else:
+            input_ids_rmpad, packed_seq_params = preprocess_packed_seqs(input_ids, attention_mask, pre_process=pre_process)
+
         input_ids_rmpad = input_ids_rmpad.contiguous()
         output_orig = model(
             input_ids=input_ids_rmpad,
@@ -59,13 +71,15 @@ def model_forward_gen(vision_model: bool = False):
         )
         if post_process and logits_processor is not None:
             args = {
-                k: preprocess_packed_seqs(v, attention_mask, pre_process=True)[0]
+                # k: preprocess_packed_seqs(v, attention_mask, pre_process=True)[0]
+                k: preprocess_packed_seqs(v, attention_mask_, pre_process=True)[0]
                 for k, v in logits_processor_args.items()
             }
             output_dict = logits_processor(output_orig, **args)
             output = {
                 k: postprocess_packed_seqs(
-                    v, packed_seq_params, attention_mask, batch_size, seq_len, post_process=post_process
+                    # v, packed_seq_params, attention_mask, batch_size, seq_len, post_process=post_process
+                    v, packed_seq_params, attention_mask_, batch_size, seq_len, post_process=post_process
                 )
                 for k, v in output_dict.items()
             }

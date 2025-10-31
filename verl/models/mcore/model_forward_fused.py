@@ -21,7 +21,7 @@ import megatron.core as mcore
 import torch
 from megatron.core import parallel_state
 from megatron.core.config_logger import has_config_logger_enabled, log_config_to_disk
-from megatron.core.inference.contexts import BaseInferenceContext
+# from megatron.core.inference.contexts import BaseInferenceContext
 from megatron.core.models.gpt.gpt_model import GPTModel
 from megatron.core.packed_seq_params import PackedSeqParams
 from megatron.core.tensor_parallel.mappings import gather_from_sequence_parallel_region
@@ -35,6 +35,7 @@ from verl.utils.model import CausalLMOutputForPPO
 
 from .util import postprocess_packed_seqs_for_dict_output
 
+BaseInferenceContext = None
 
 def _get_patching_model(model: torch.nn.Module):
     model = unwrap_model(model)

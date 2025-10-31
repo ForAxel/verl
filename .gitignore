@@ -126,3 +126,9 @@ logs
 log
 outputs
 .history
+
+
+# MT dev
+demo_*
+config_example
+backup_shells

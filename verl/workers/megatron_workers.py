@@ -136,7 +136,8 @@ class MegatronWorker(Worker):
                 self.tokenizer.chat_template = self.config.model.custom_chat_template
 
         # Step 2: get the hf
-        hf_config = AutoConfig.from_pretrained(self.local_path, trust_remote_code=trust_remote_code)
+        # hf_config = AutoConfig.from_pretrained(self.local_path, trust_remote_code=trust_remote_code)
+        hf_config = AutoConfig.from_pretrained(self.local_path, trust_remote_code=True)
 
         # Step 3: override the hf config
         override_config_kwargs = {
@@ -194,9 +195,11 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         if not torch.distributed.is_initialized():
             set_numa_affinity()
             rank = int(os.environ["LOCAL_RANK"])
+            import socket
+            print(f'{socket.gethostname()}, mpu init {int(os.environ["WORLD_SIZE"])}, {int(os.environ["RANK"])}, {os.environ["LOCAL_RANK"]}')
             torch.distributed.init_process_group(
                 backend=get_nccl_backend(),
-                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
+                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 7200)),
                 init_method=os.environ.get("DIST_INIT_METHOD", None),
             )
             get_torch_device().set_device(rank)
@@ -303,7 +306,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             self.dtype,
             override_model_config,
             override_transformer_config,
-            self.config.model.get("trust_remote_code", False),
+            self.config.model.get("trust_remote_code", True),
             self.config.actor.megatron.use_mbridge,
         )
         self.generation_config = get_generation_config(self.local_path)
@@ -359,17 +362,21 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 assert self.config.actor.load_weight == self.config.ref.load_weight
                 print("load ref weight start")
                 if self.config.ref.megatron.use_dist_checkpointing:
+                    print("use_dist_checkpointing==True, load checkpoint")
                     load_mcore_dist_weights(
                         ref_module, self.config.ref.megatron.dist_checkpointing_path, is_value_model=False
                     )
                 else:
                     if self.bridge is not None:
+                        print("use_dist_checkpointing==False, bridge is not None")
                         local_model_path = get_hf_model_path(self.config)
                         self.bridge.load_weights(ref_module, local_model_path)
                     else:
+                        print("use_dist_checkpointing==False, bridge is None")
                         load_megatron_gptmodel_weights(
                             self.config, self.hf_config, ref_module, params_dtype=self.dtype, is_value_model=False
                         )
+                logger.warning(f"load ref weight end!") # DEBUG
             log_gpu_memory_usage("After ref module init", logger=logger)
             return ref_module, self.hf_config
 
@@ -387,6 +394,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         log_gpu_memory_usage("After actor optimizer init", logger=logger)
 
+        print(f"_build_model_optimizer finish") # DEBUG
         return actor_module, actor_optimizer, actor_optimizer_scheduler, self.hf_config, optim_config
 
     def _build_rollout(self, trust_remote_code=False):
@@ -556,6 +564,8 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         get_torch_device().empty_cache()
         log_gpu_memory_usage("After init_model finish", logger=logger)
+
+        logger.warning("init_model finish") # DEBUG
 
     async def rollout_mode(self):
         """Context switch hybridengine to rollout mode."""
@@ -855,7 +865,8 @@ class CriticWorker(MegatronWorker, DistProfilerExtension):
             rank = int(os.environ["LOCAL_RANK"])
             torch.distributed.init_process_group(
                 backend=get_nccl_backend(),
-                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
+                # timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
+                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 3600)),
                 init_method=os.environ.get("DIST_INIT_METHOD", None),
             )
             get_torch_device().set_device(rank)
@@ -1136,7 +1147,8 @@ class RewardModelWorker(MegatronWorker, DistProfilerExtension):
             rank = int(os.environ["LOCAL_RANK"])
             torch.distributed.init_process_group(
                 backend=get_nccl_backend(),
-                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
+                # timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 600)),
+                timeout=datetime.timedelta(seconds=self.config.get("nccl_timeout", 3600)),
                 init_method=os.environ.get("DIST_INIT_METHOD", None),
             )
             get_torch_device().set_device(rank)

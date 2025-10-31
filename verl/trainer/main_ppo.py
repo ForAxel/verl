@@ -31,6 +31,12 @@ from verl.utils.config import validate_config
 from verl.utils.device import is_cuda_available
 from verl.utils.import_utils import load_extern_type
 
+import logging
+
+import os
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
 
 @hydra.main(config_path="config", config_name="ppo_trainer", version_base=None)
 def main(config):
@@ -40,6 +46,24 @@ def main(config):
         config_dict: Hydra configuration dictionary containing training parameters.
     """
     run_ppo(config)
+
+
+def get_ray_env_from_file():
+    """
+    直接读取文件中的配置
+    """
+    import yaml
+
+    with open('/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml', 'r', encoding='utf-8') as file:
+        data = yaml.safe_load(file)
+    musa_path = data["env_vars"]["MUSA_PATCH_PATH"]
+    megatron_path = data["env_vars"]["MEGATRON_PATH"]
+    raw_python_path = data["env_vars"]["PYTHONPATH"]
+    # data["env_vars"]["PYTHONPATH"] = f"{musa_path}:{megatron_path}:{raw_python_path}:{os.environ.get('PYTHONPATH', '')}"
+    data["env_vars"]["PYTHONPATH"] = f"{raw_python_path}:{os.environ.get('PYTHONPATH', '')}"
+    # print(data["env_vars"]["PYTHONPATH"])
+    # exit()
+    return data
 
 
 # Define a function to run the PPO-like training process
@@ -58,20 +82,40 @@ def run_ppo(config, task_runner_class=None) -> None:
         # Set environment variables in the runtime environment to control tokenizer parallelism,
         # NCCL debug level, VLLM logging level, and allow runtime LoRA updating
         # `num_cpus` specifies the number of CPU cores Ray can use, obtained from the configuration
-        default_runtime_env = get_ppo_ray_runtime_env()
-        ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
-        runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
+        
+        # default_runtime_env = get_ppo_ray_runtime_env()
+        # ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
+        # runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
 
-        if config.transfer_queue.enable:
-            # Add runtime environment variables for transfer queue
-            runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
-            runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
-            runtime_env_kwargs["env_vars"] = runtime_env_vars
+        # if config.transfer_queue.enable:
+        #     # Add runtime environment variables for transfer queue
+        #     runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
+        #     runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
+        #     runtime_env_kwargs["env_vars"] = runtime_env_vars
 
-        runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
-        ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
-        print(f"ray init kwargs: {ray_init_kwargs}")
-        ray.init(**OmegaConf.to_container(ray_init_kwargs))
+        # runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
+        # ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
+        # print(f"ray init kwargs: {ray_init_kwargs}")
+        # ray.init(**OmegaConf.to_container(ray_init_kwargs))
+
+        # print('ray init')
+        # ray.init(
+        #     runtime_env=get_ppo_ray_runtime_env(),
+        #     # num_cpus=config.ray_init.num_cpus,
+        #     # num_gpus=8
+        # )
+
+        sys_runtime_env = get_ray_env_from_file()
+        custom_python_path = "/home/dist/zhaoping/Code/musa_patch/Megatron-LM:/home/dist/zhaoping/Code/verl-musa-patch:/home/dist/zhaoping/Code/verl-musa-patch/verl"
+        sys_runtime_env["env_vars"]["PYTHONPATH"] = custom_python_path
+        print(f"\n runtime_env: {sys_runtime_env} \n\n")
+        # exit()
+        ray.init(
+            runtime_env=sys_runtime_env,
+            logging_level=logging.DEBUG
+            # num_cpus=config.ray_init.num_cpus,
+            # num_gpus=8
+        )
 
     if task_runner_class is None:
         task_runner_class = ray.remote(num_cpus=1)(TaskRunner)  # please make sure main_task is not scheduled on head
@@ -93,7 +137,7 @@ def run_ppo(config, task_runner_class=None) -> None:
         runner = task_runner_class.options(runtime_env={"nsight": nsight_options}).remote()
     else:
         runner = task_runner_class.remote()
-    ray.get(runner.run.remote(config))
+    ray.get(runner.run.remote(config)) # ATTN 容易出错位置
 
     # [Optional] get the path of the timeline trace file from the configuration, default to None
     # This file is used for performance analysis
@@ -181,15 +225,19 @@ class TaskRunner:
         resource_pool_spec = {
             global_pool_id: [config.trainer.n_gpus_per_node] * config.trainer.nnodes,
         }
-        # TODO Here you can use the new registration method to support dynamic registration of roles
-        if config.reward_model.enable_resource_pool:
-            if config.reward_model.n_gpus_per_node <= 0:
-                raise ValueError("config.reward_model.n_gpus_per_node must be greater than 0")
-            if config.reward_model.nnodes <= 0:
-                raise ValueError("config.reward_model.nnodes must be greater than 0")
+        
+        # ATTN 沿用 0.5.0.dev 中的代码，这部分直接注释 可能需要添加新的命令行注释
+        # print(f"config is: {config}")
+        # exit()
+        # # TODO Here you can use the new registration method to support dynamic registration of roles
+        # if config.reward_model.enable_resource_pool:
+        #     if config.reward_model.n_gpus_per_node <= 0:
+        #         raise ValueError("config.reward_model.n_gpus_per_node must be greater than 0")
+        #     if config.reward_model.nnodes <= 0:
+        #         raise ValueError("config.reward_model.nnodes must be greater than 0")
 
-            reward_pool = [config.reward_model.n_gpus_per_node] * config.reward_model.nnodes
-            resource_pool_spec["reward_pool"] = reward_pool
+        #     reward_pool = [config.reward_model.n_gpus_per_node] * config.reward_model.nnodes
+        #     resource_pool_spec["reward_pool"] = reward_pool
 
         self.mapping[Role.ActorRollout] = global_pool_id
         self.mapping[Role.Critic] = global_pool_id
@@ -334,9 +382,12 @@ class TaskRunner:
             collate_fn=collate_fn,
             train_sampler=train_sampler,
         )
+        print(f"trainer is: {trainer}")
         # Initialize the workers of the trainer.
         trainer.init_workers()
-
+        logger.warning(f"trainer.init_workers() success")
+        # assert 1==2 # DEBUG
+        logger.warning(f"trainer.fit() start")
         # Start the training process.
         trainer.fit()
 

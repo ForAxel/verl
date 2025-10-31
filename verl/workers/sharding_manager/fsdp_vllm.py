@@ -218,7 +218,8 @@ class FSDPVLLMShardingManager(BaseShardingManager):
 
             if self.rollout_config.free_cache_engine:
                 if "tags" in inspect.signature(self.inference_engine.wake_up).parameters:
-                    self.inference_engine.wake_up(tags=["weights"])
+                    # self.inference_engine.wake_up(tags=["weights"])
+                    self.inference_engine.wake_up()
                 else:
                     self.inference_engine.wake_up()
 
