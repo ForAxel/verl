@@ -27,7 +27,7 @@ def is_torch_npu_available() -> bool:
 
 is_cuda_available = torch.cuda.is_available()
 is_npu_available = is_torch_npu_available()
-is_musa_avaiable  = torch.musa.is_available()
+is_musa_available  = torch.musa.is_available()
 
 
 def get_visible_devices_keyword() -> str:
@@ -37,7 +37,7 @@ def get_visible_devices_keyword() -> str:
     """
     if is_cuda_available:
         return "CUDA_VISIBLE_DEVICES"
-    elif is_musa_avaiable:
+    elif is_musa_available:
         return "MUSA_VISIBLE_DEVICES"
     else:
         return "ASCEND_RT_VISIBLE_DEVICES"
@@ -53,7 +53,7 @@ def get_device_name() -> str:
         device = "cuda"
     elif is_npu_available:
         device = "npu"
-    elif is_musa_avaiable:
+    elif is_musa_available:
         device = 'musa'
     else:
         device = "cpu"
@@ -94,7 +94,7 @@ def get_nccl_backend() -> str:
         return "nccl"
     elif is_npu_available:
         return "hccl"
-    elif is_musa_avaiable:
+    elif is_musa_available:
         return 'mccl'
     else:
         raise RuntimeError(f"No available nccl backend found on device type {get_device_name()}.")
@@ -107,3 +107,5 @@ def set_expandable_segments(enable: bool) -> None:
     """
     if is_cuda_available:
         torch.cuda.memory._set_allocator_settings(f"expandable_segments:{enable}")
+    elif is_musa_available:
+        torch.musa.memory._set_allocator_settings(f"expandable_segments:{enable}")

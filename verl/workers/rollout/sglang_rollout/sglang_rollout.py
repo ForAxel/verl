@@ -437,7 +437,12 @@ class SGLangRollout(BaseRollout):
 
         if self.config.mode == "async" and not self.config.skip_tokenizer_init:
             raise ValueError("async mode requires skip_tokenizer_init to be True")
-        backend = attention_backend if attention_backend is not None else "fa3"
+        # backend = attention_backend if attention_backend is not None else "fa3"
+        
+        backend = None
+        logger.warning(f"SGLangRollout backend: {backend}") # DEBUG
+        # assert 1==2 # DEBUG
+        
         if effective_first:
             rank = dist.get_rank()
             os.environ["SGLANG_BLOCK_NONZERO_RANK_CHILDREN"] = "0"
@@ -592,7 +597,8 @@ class SGLangRollout(BaseRollout):
             responses:     |<- LLM generation ->|<- tool_calls ->|<- LLM generation ->|<- padding ->|
             response_mask: | 1, 1, 1, ..., 1, 1 | 0, 0, .., 0, 0 | 1, 1, 1, ..., 1, 1 | 0, 0, ..., 0|
         """
-        if self.config.multi_turn.enable:
+        print(f"sglang_rollout.py self.config.multi_turn.enable: {self.config.multi_turn.enable}") # DEBUG
+        if self.config.multi_turn.enable: # False
             return self._req_level_generate_sequences(prompts, **kwargs)
         return self._batch_level_generate_sequences(prompts, **kwargs)
 
@@ -639,6 +645,7 @@ class SGLangRollout(BaseRollout):
         Note that in GRPO, if the prompts are validated, we repeat the prompts for rollout.n times in ray_trainer.
         Thus we do not need to repeat the prompts here and set the sampling parameter n to 1.
         """
+        logger.warning("log SGLangRollout _batch_level_generate_sequences start") # DEBUG
         # input ids: (bs, prompt_length), left-padded
         idx = prompts.batch["input_ids"]
         # attention_mask: (bs, seq_length), left-padded
@@ -653,6 +660,10 @@ class SGLangRollout(BaseRollout):
 
         # Extract non-tensor data
         non_tensor_batch = prompts.non_tensor_batch
+        
+        logger.warning(f"non_tensor_batch keys(): {non_tensor_batch.keys()}") # DEBUG
+        # ['ability', 'raw_prompt_ids', 'tools_kwargs', 'index', 'interaction_kwargs']
+
         if "raw_prompt_ids" not in non_tensor_batch:
             non_tensor_batch["raw_prompt_ids"] = np.array(
                 [_pre_process_inputs(self.pad_token_id, idx[i]).tolist() for i in range(batch_size)],
@@ -698,6 +709,8 @@ class SGLangRollout(BaseRollout):
 
         # Create request-level sampling parameters
         request_sampling_params = self.sampling_params.copy()
+        logger.warning(f"do_sample is: {do_sample}, is_validate is: {is_validate}")
+        # do_sample is: True, is_validate is: False
         if not do_sample:
             request_sampling_params.update(
                 {
@@ -728,8 +741,17 @@ class SGLangRollout(BaseRollout):
         # Update with any additional kwargs
         request_sampling_params.update(kwargs)
 
+        logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
         if self._tp_rank == 0:
             loop = asyncio.get_event_loop()
+            logger.warning(f"SGLangRollout self._engine class is: {self._engine}") # DEBUG
+            # verl.workers.rollout.sglang_rollout.sglang_rollout.AsyncEngine
+            request_sampling_params["repetition_penalty"] = 1.1 # DEBUG 手动修改参数
+            logger.warning(f"request_sampling_params: {request_sampling_params}") # DEBUG
+            # assert 1==2 # DEBUG
+            # {'n': 1, 'max_new_tokens': 32, 'presence_penalty': 0.0, 'frequency_penalty': 0.0, 
+            # 'repetition_penalty': 1.0, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 
+            # 'ignore_eos': False}
             output = loop.run_until_complete(
                 self._engine.async_generate(
                     prompt=None,  # because we have already convert it to prompt token id
@@ -742,8 +764,11 @@ class SGLangRollout(BaseRollout):
         else:
             output = None
 
+        logger.warning(f"before dist.barrier()") # DEBUG
+
         # Most naive implementation, can extract tensor and send via gloo if too slow
         dist.barrier()
+        logger.warning(f"after dist.barrier()") # DEBUG
         [output] = broadcast_pyobj(
             data=[output],
             rank=self._rank,

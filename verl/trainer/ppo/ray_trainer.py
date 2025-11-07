@@ -758,8 +758,6 @@ class RayPPOTrainer:
             self.critic_wg = all_wg[str(Role.Critic)]
             self.critic_wg.init_model()
 
-        logger.warning("TMPPPPPPPP") # DEBUG
-
         # TODO ATTN 这里卡住
         if self.use_reference_policy and not self.ref_in_actor:
             logger.warning(f'before ref init {torch.musa.current_device()}') # DEBUG
@@ -1117,8 +1115,13 @@ class RayPPOTrainer:
                 with marked_timer("step", timing_raw):
                     # generate a batch
                     with marked_timer("gen", timing_raw, color="red"):
-                        if not self.async_rollout_mode:
+                        print(f"RayPPOTrainer self.async_rollout_mode is: {self.async_rollout_mode}") # DEBUG
+                        if not self.async_rollout_mode: #  False
+                            # DEBUG 在这里卡住
+                            print(f"RayPPOTrainer fit self.actor_rollout_wg is: {self.actor_rollout_wg}")
+                            print(f"gen_batch_output type: {type(gen_batch_output)}, length: {len(gen_batch_output)}")
                             gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch_output)
+                            print(f"self.actor_rollout_wg.generate_sequences finish!")
                         else:
                             gen_batch_output = self.async_rollout_manager.generate_sequences(gen_batch_output)
 

@@ -406,12 +406,22 @@ class MegatronCheckpointManager(BaseCheckpointManager):
                     log_with_rank(
                         f"Generated state dict for saving: {state_dict['model'].keys()}", rank=self.rank, logger=logger
                     )
+
+            # DEBUG
+            logger.warning(f"dist_checkpoint_path: {dist_checkpoint_path}")
+            logger.warning(f"self.checkpoint_config.async_save: {self.checkpoint_config.async_save}")
+            logger.warning(f"type(state_dict): {type(state_dict)}")
+
+
             # Start Async save if enabled
             async_save_request = save_dist_checkpointing(
                 sharded_state_dict=state_dict,
                 ckpt_path=dist_checkpoint_path,
                 async_save=self.checkpoint_config.async_save,
             )
+
+            # DEBUG
+            logger.warning(f"save_dist_checkpointing success!")
 
             # Synchronize all async save requests
             if not self.checkpoint_config.async_save:

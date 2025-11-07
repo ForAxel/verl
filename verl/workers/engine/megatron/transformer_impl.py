@@ -119,7 +119,7 @@ class MegatronEngine(BaseEngine):
             self.weight_converter = get_mcore_weight_converter(self.model_config.hf_config, self.dtype)
 
         if torch.distributed.get_rank() == 0:
-            print(f"TF config: {tf_config}")
+            print(f"transformer_impl.py TF config: {tf_config}")
         self.tf_config = tf_config
 
     def _build_megatron_module(self):

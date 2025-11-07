@@ -10,7 +10,7 @@ DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # For megatron communication/computation overlapping
 export OMP_NUM_THREADS=4
 # export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
-export MUSA_VISIBLE_DEVICES='7'
+export MUSA_VISIBLE_DEVICES='0'
 export MUSA_EXECUTION_TIMEOUT=3200000
 # export MUSA_KERNEL_TIMEOUT=3200000
 export ACCELERATOR_BACKEND="musa"
@@ -60,9 +60,8 @@ export RAY_num_cpus=32  # 根据实际CPU核心数调整
 # 禁用Python的子进程fork
 export PYTHON_DISABLE_FORK=1
 
-# # 解决保存问题
-# export CUDA_LAUNCH_BLOCKING=1
-# export TORCH_SAFE_SERIALIZATION=1
+# 改成单batch看下效果  data.train_batch_size=1 actor_rollout_ref.actor.ppo_mini_batch_size=1
+# ======
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
@@ -123,4 +122,4 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-| tee ../logs/run_ppo_demo.log 2>&1
+| tee ../logs/run_ppo_demo_backupShell.log 2>&1

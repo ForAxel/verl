@@ -168,7 +168,7 @@ class MegatronWorker(Worker):
             tf_config = hf_to_mcore_config(hf_config, dtype, **override_transformer_config)
             self.bridge = None
 
-        print(f"TF config: {tf_config}")
+        print(f"megatron_workers.py TF config: {tf_config}")
         self.hf_config = hf_config
         self.tf_config = tf_config
 
@@ -622,6 +622,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         # restore random states
         self.gen_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.torch_random_states)
+        logger.warning(f"trainer_mode func finish")
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="actor"))
     @GPUMemoryLogger(role="update_actor", logger=logger)
@@ -793,6 +794,13 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
     def save_checkpoint(self, checkpoint_path, hdfs_path=None, global_step=0, max_ckpt_to_keep=None):
         if self._is_offload_param:
             load_megatron_model_to_gpu(self.actor_module)
+
+        # DEBUG 保存时卡住
+        print(f"megatron_workers.py save_checkpoint checkpoint_path: {checkpoint_path}")
+        print(f"megatron_workers.py save_checkpoint hdfs_path: {hdfs_path}")
+        print(f"megatron_workers.py save_checkpoint global_step: {global_step}")
+        print(f"megatron_workers.py save_checkpoint max_ckpt_to_keep: {max_ckpt_to_keep}")
+
         self.checkpoint_mananager.save_checkpoint(
             local_path=checkpoint_path, hdfs_path=hdfs_path, global_step=global_step, max_ckpt_to_keep=max_ckpt_to_keep
         )

@@ -49,7 +49,8 @@ actor_rollout_ref:
         - core_attn
         recompute_method: null
         recompute_num_layers: null
-        attention_backend: flash
+        # attention_backend: flash
+        attention_backend: null
       override_mcore_model_config: {}
       use_mbridge: false
       forward_only: false
@@ -353,7 +354,8 @@ critic:
       - core_attn
       recompute_method: null
       recompute_num_layers: null
-      attention_backend: flash
+      # attention_backend: flash
+      attention_backend: null
     override_mcore_model_config: {}
     use_mbridge: false
     forward_only: false

@@ -67,7 +67,8 @@ override_transformer_config:
   recompute_num_layers: null
 
   # Attention backend to use (flash,fused,unfused,local,auto). Defaults to auto in mcore, flash in verl
-  attention_backend: flash
+  # attention_backend: flash
+  attention_backend: null
 
 override_mcore_model_config: {}
 

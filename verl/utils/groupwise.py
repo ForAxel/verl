@@ -60,6 +60,9 @@ def _resolve_device(explicit: Optional[torch.device | str]) -> torch.device:
       3) pytest detection -> cpu
       4) cuda if available, else cpu
     """
+    # print(f"explicit is: {explicit}")
+    # print(f"groupwise.py forced is: {forced}")
+    # assert 1==2 # DEBUG
     if explicit is not None:
         return torch.device(explicit)
 

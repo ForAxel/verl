@@ -33,7 +33,7 @@ from verl.trainer.main_ppo import (
 from verl.trainer.ppo.reward import load_reward_manager
 from verl.trainer.ppo.utils import need_critic, need_reference_policy
 from verl.utils.config import validate_config
-from verl.utils.device import is_cuda_available
+from verl.utils.device import is_cuda_available, is_musa_available
 
 from .ray_trainer import RayPPOTrainer
 
@@ -85,7 +85,7 @@ def run_ppo(config, task_runner_class=None) -> None:
     # Create a remote instance of the TaskRunner class, and
     # Execute the `run` method of the TaskRunner instance remotely and wait for it to complete
     if (
-        is_cuda_available
+        (is_cuda_available or is_musa_available)
         and config.global_profiler.tool == "nsys"
         and config.global_profiler.get("steps") is not None
         and len(config.global_profiler.get("steps", [])) > 0
