@@ -213,7 +213,7 @@ class MegatronPPOActor(BasePPOActor):
             batch_size = input_ids.size(0)
             response = batch["responses"]
             response_length = response.size(1)
-            print(f'data is {data}') # DEBUG
+            # print(f'data is {data}') # DEBUG
             with torch.no_grad():
                 output = self.forward_backward_batch(
                     data,

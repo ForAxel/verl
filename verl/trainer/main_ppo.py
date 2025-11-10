@@ -109,12 +109,10 @@ def run_ppo(config, task_runner_class=None) -> None:
         custom_python_path = "/home/dist/zhaoping/Code/musa_patch/Megatron-LM:/home/dist/zhaoping/Code/verl-musa-patch:/home/dist/zhaoping/Code/verl-musa-patch/verl"
         sys_runtime_env["env_vars"]["PYTHONPATH"] = custom_python_path
         print(f"\n runtime_env: {sys_runtime_env} \n\n")
-        # exit()
+        #ATTN 强制修改了PYTHONPATH
         ray.init(
             runtime_env=sys_runtime_env,
             logging_level=logging.DEBUG
-            # num_cpus=config.ray_init.num_cpus,
-            # num_gpus=8
         )
 
     if task_runner_class is None:

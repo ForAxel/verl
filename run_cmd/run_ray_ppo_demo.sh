@@ -1,35 +1,24 @@
-# 单GPU启动，使用已有的CKPT数据
-# 模型、数据可以正常加载，卡在fit阶段
+# 提交任务到ray上运行，当前版本可以正常运行
+# 为了方便调试，后续优先通过Python命令行来启用
 
 set -x
 
-# 直接使用下载的模型参数和mcore参数
 HF_MODEL_PATH='/home/dist/zhaoping/LLMs/Qwen3-1.7B'
 DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
-# export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
-export MUSA_VISIBLE_DEVICES='7'
+# export CUDA_DEVICE_MAX_CONNECTIONS=1 # For megatron communication/computation overlapping
+# export OMP_NUM_THREADS=4
 export MUSA_EXECUTION_TIMEOUT=3200000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
 
-# export MCCL_IB_GID_INDEX=3
-# export MUSA_BLOCK_SCHEDULE_MODE=1
-# export MCCL_ALGOS=1
-# export MCCL_BUFFSIZE=20480000
-
-
-# export ACCELERATE_USE_FSDP=1
-# export FSDP_CPU_RAM_EFFICIENT_LOADING=1
-export VERL_LOGGING_LEVEL=INFO #INFO
+export VERL_LOGGING_LEVEL=WARNING #INFO
 export HYDRA_FULL_ERROR=1
-#export MUSA_USERQ=1
 
-# export MUSA_PATCH_PATH=/home/dist/zhaoping/Code/verl-musa-patch
 export MEGATRON_PATH=/home/dist/zhaoping/Code/musa_patch/Megatron-LM
 export VERL_PATH=/home/dist/zhaoping/Code/verl-musa-patch/verl
-export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
+export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:$PYTHONPATH
 
 
 DATASET_PATH="/home/dist/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
@@ -40,17 +29,26 @@ test_files=$DATASET_PATH/math_test.parquet
 CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
 
 
-# # 解决保存问题
-# export CUDA_LAUNCH_BLOCKING=1
-# export TORCH_SAFE_SERIALIZATION=1
+# ray job submit --address="10.18.33.9:65379" \
+#     --no-wait\
+#     -- \
+#     python -c "import ray;ray.init();print('Test job')" # demo test
 
-env PYTHONPATH="$PYTHONPATH" \
-    MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
-    ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
-    RAY_LOGGING_LEVEL=WARNING \
-    RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.33.9:65379" \
-python3 -m verl.trainer.main_ppo \
+# RAY_ADDRESS="10.18.33.9:65379" python -c "import ray;ray.init();print('Test job direct connect Ray')"
+
+# # success
+# ray job submit --address="10.18.33.9:65379" \
+#     --runtime-env=/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml \
+#     --no-wait\
+#     -- \
+#     python -c "import ray;ray.init();print('Test job with runtime env')"
+
+
+ray job submit --address="10.18.33.9:65379" \
+    --runtime-env=/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml \
+    --no-wait \
+    -- \
+    python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
@@ -103,4 +101,4 @@ python3 -m verl.trainer.main_ppo \
     trainer.save_freq=5 \
     trainer.test_freq=10 \
     trainer.total_epochs=10 $@ \
-| tee ../logs/run_ppo_demo.log 2>&1
+
