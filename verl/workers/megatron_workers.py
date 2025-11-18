@@ -168,7 +168,6 @@ class MegatronWorker(Worker):
             tf_config = hf_to_mcore_config(hf_config, dtype, **override_transformer_config)
             self.bridge = None
 
-        print(f"megatron_workers.py TF config: {tf_config}")
         self.hf_config = hf_config
         self.tf_config = tf_config
 
@@ -435,7 +434,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         log_gpu_memory_usage(f"Before building {self.config.rollout.name} rollout", logger=logger)
         self.rollout = get_rollout_class(rollout_config.name, rollout_config.mode)(
             config=rollout_config, model_config=model_config, device_mesh=rollout_device_mesh
-        )
+        ) # ATTN 这里映射到对应的推理框架类
         log_gpu_memory_usage(f"After building {self.config.rollout.name} rollout", logger=logger)
 
         # 5. switch to trainer mode
@@ -670,7 +669,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="rollout"))
     @GPUMemoryLogger(role="generate_sequences", logger=logger)
     @DistProfiler.annotate(color="red")
-    def generate_sequences(self, prompts: DataProto):
+    def generate_sequences(self, prompts: DataProto): # ATTN worker 完整 rollout 过程
         assert self._is_rollout
         prompts = prompts.to(get_device_name())
         meta_info = {

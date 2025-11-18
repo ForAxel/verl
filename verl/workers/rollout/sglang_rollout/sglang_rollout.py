@@ -263,6 +263,17 @@ class SGLangRollout(BaseRollout):
     ):
         super().__init__(config, model_config, device_mesh)
 
+        # # DEBUG
+        # import json
+        # config_dict = {k:v for k,v in dict(config).items()}
+        # json_str = json.dumps(config_dict, default=str, ensure_ascii=False)
+        # logger.warning(f"SGLangRollout config dict string: {json_str}")
+        # # logger.warning(f"SGLangRollout model_config: {model_config}")
+        # logger.warning(f"SGLangRollout device_mesh: {device_mesh}")
+        
+        # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/backup_shells/verl_config/verl_sglang_config.json", "w", encoding="utf-8") as f:
+        #     f.write(json_str)
+
         actor_module = model_config.local_path
         processing_class = model_config.get_processor()
         model_hf_config = model_config.hf_config
@@ -293,7 +304,7 @@ class SGLangRollout(BaseRollout):
 
         self._verify_config(model_hf_config=model_hf_config)
         # initialize the inference engine
-        self._init_inference_engine(trust_remote_code, actor_module, port)
+        self._init_inference_engine(trust_remote_code, actor_module, port) # ATTN 初始化推理引擎
 
         self._init_sampling_params(**kwargs)
 
@@ -308,7 +319,7 @@ class SGLangRollout(BaseRollout):
             except AttributeError as e:
                 raise ValueError(f"Cannot get pad_token_id from processing_class {self.processing_class}") from e
 
-    def _init_distributed_env(self, device_mesh_cpu, **kwargs):
+    def _init_distributed_env(self, device_mesh_cpu, **kwargs): # ATTN 检查分布式环境配置
         self._device_mesh_cpu = device_mesh_cpu
         os.environ.setdefault("SGL_DISABLE_TP_MEMORY_INBALANCE_CHECK", "true")
         self.tensor_parallel_size = self.config.get("tensor_model_parallel_size", 1)
@@ -347,15 +358,28 @@ class SGLangRollout(BaseRollout):
         # get tp_rank of this process in this tp group
         visible_devices = [None] * self._device_mesh_cpu.size(1)
         devices_keyword = get_visible_devices_keyword()
+        
+        # # DEBUG
+        # logger.warning(f"RAW visible_devices is: {visible_devices}") # [None, None]
+        # logger.warning(f"RAW os.environ[devices_keyword] is: {os.environ[devices_keyword]}") # 0~7
+
         torch.distributed.all_gather_object(
             visible_devices, os.environ[devices_keyword], self._device_mesh_cpu.get_group("tp")
         )
         self.visible_devices_set = set(",".join(visible_devices).split(","))
-        # DEBUG
-        logger.warning(f"devices_keyword is: {devices_keyword}")
-        logger.warning(f"visible_devices is: {visible_devices}")
-        logger.warning(f"self.visible_devices_set is: {self.visible_devices_set}")     
         os.environ[devices_keyword] = ",".join(sorted(list(self.visible_devices_set), key=int))
+        
+        # # DEBUG
+        # logger.warning(f"self._device_mesh_cpu: {self._device_mesh_cpu}") # None
+        # logger.warning(f"self._device_mesh_cpu.get_group('tp'): {self._device_mesh_cpu.get_group('tp')}")
+        # logger.warning(f"self.tensor_parallel_size: {self.tensor_parallel_size}") # 2
+        # logger.warning(f"self._rank: {self._rank}")
+        # logger.warning(f"self._tp_rank: {self._tp_rank}")
+        # logger.warning(f"self._tp_size: {self._tp_size}")
+        # logger.warning(f"devices_keyword is: {devices_keyword}")
+        # logger.warning(f"visible_devices is: {visible_devices}")
+        # logger.warning(f"self.visible_devices_set is: {self.visible_devices_set}")   
+        # # assert 1==2
 
     def _verify_config(self, model_hf_config):
         if not self.config.get("max_model_len", None):
@@ -402,6 +426,13 @@ class SGLangRollout(BaseRollout):
             self.config.multi_turn.max_user_turns = self.config.max_model_len // 3
 
     def _init_inference_engine(self, trust_remote_code, actor_module, port):
+
+        # DEBUG
+        logger.warning(f"_init_inference_engine trust_remote_code: {trust_remote_code}") # True
+        logger.warning(f"_init_inference_engine actor_module: {actor_module}") # /home/dist/zhaoping/LLMs/Qwen3-1.7B
+        logger.warning(f"_init_inference_engine port: {port}") # None
+        logger.warning(f"self._tp_size: {self._tp_size}, self.visible_devices_set: {self.visible_devices_set}")
+
         # initialize the inference engine
         nnodes = -(-self._tp_size // len(self.visible_devices_set))
         if nnodes > 1:
@@ -422,12 +453,16 @@ class SGLangRollout(BaseRollout):
         tp_size_per_node = self._tp_size // nnodes
         node_rank = self._tp_rank // tp_size_per_node
         first_rank_in_node = self._tp_rank % tp_size_per_node == 0
-        engine_kwargs = self.config.get("engine_kwargs", {}).get("sglang", {}) or {}
+        engine_kwargs = self.config.get("engine_kwargs", {}).get("sglang", {}) or {} # None
         engine_kwargs = {key: val for key, val in engine_kwargs.items() if val is not None}
 
         # attention backend will be changed to fa3 if not specified
         attention_backend = engine_kwargs.pop("attention_backend", None)
-        max_running_requests = self.config.get("max_num_seqs", None)
+        # max_running_requests = self.config.get("max_num_seqs", None)
+        max_running_requests = 48 # ATTN 强制减少并行度
+
+        # DEBUG
+        logger.warning(f"engine_kwargs: {engine_kwargs}") # None
 
         try:
             is_server_mode = self.config.sglang_rollout_mode == "server"
@@ -441,16 +476,17 @@ class SGLangRollout(BaseRollout):
         
         backend = None
         logger.warning(f"SGLangRollout backend: {backend}") # DEBUG
-        # assert 1==2 # DEBUG
+        logger.warning(f"effective_first: {effective_first}, is_server_mode: {is_server_mode}")
         
-        if effective_first:
+        if effective_first: # True
             rank = dist.get_rank()
             os.environ["SGLANG_BLOCK_NONZERO_RANK_CHILDREN"] = "0"
             args = {
                 "model_path": actor_module,
                 "dtype": self.config.dtype,
                 "mem_fraction_static": self.config.gpu_memory_utilization,
-                "enable_memory_saver": True,
+                # "enable_memory_saver": True,
+                "enable_memory_saver": False, # ATTN 和 SGLang默认参数设置对齐
                 "base_gpu_id": 0,
                 "gpu_id_step": 1,
                 "tp_size": self._tp_size,
@@ -462,7 +498,8 @@ class SGLangRollout(BaseRollout):
                 "max_running_requests": max_running_requests,
                 # NOTE(linjunrong): add rank to prevent SGLang generate same port inside PortArgs.init_new
                 # when random.seed is being set during training
-                "port": 30000 + rank,
+                # "port": 30000 + rank,
+                "port": 60000 + rank, # ATTN 修改 port
                 # NOTE(Chenyang): if you want to debug the SGLang engine output
                 # please set the following parameters
                 # Otherwise, it will make the engine run too slow
@@ -475,11 +512,18 @@ class SGLangRollout(BaseRollout):
                 "mm_attention_backend": backend,
                 "attention_backend": backend,
                 # In async mode, we want token in token out.
-                "skip_tokenizer_init": self.config.skip_tokenizer_init,
+                # "skip_tokenizer_init": self.config.skip_tokenizer_init,
+                "skip_tokenizer_init": False, # ATTN 和 SGLang默认参数设置对齐
                 "dist_timeout": 1800,
             }
 
-            if is_server_mode:
+            # logger.warning(f"SGLang Rollout engine args: {args}")
+            # import json
+            # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/backup_shells/verl_config/sglangengine_args.json", "w") as f:
+            #     json.dump(args, f)
+            # assert 1==2
+
+            if is_server_mode: # False
                 # add server specific args
                 args["first_rank_in_node"] = first_rank_in_node
                 args["timeout"] = self.config.server["timeout"]
@@ -604,7 +648,7 @@ class SGLangRollout(BaseRollout):
 
     @GPUMemoryLogger(role="sglang rollout", logger=logger)
     @torch.no_grad()
-    def _batch_level_generate_sequences(self, prompts: DataProto, **kwargs) -> DataProto:
+    def _batch_level_generate_sequences(self, prompts: DataProto, **kwargs) -> DataProto: # ATTN 通过这个函数生成序列
         """Generates single-turn sequences for a batch of prompts.
         For single-turn generation, all prompts are processed in one request.
         `_batch_level_generate_sequences` involves:
@@ -645,7 +689,10 @@ class SGLangRollout(BaseRollout):
         Note that in GRPO, if the prompts are validated, we repeat the prompts for rollout.n times in ray_trainer.
         Thus we do not need to repeat the prompts here and set the sampling parameter n to 1.
         """
-        logger.warning("log SGLangRollout _batch_level_generate_sequences start") # DEBUG
+        # DEBUG
+        logger.warning("log SGLangRollout _batch_level_generate_sequences start")
+        logger.warning(f"prompts.meta_info: {prompts.meta_info}")
+
         # input ids: (bs, prompt_length), left-padded
         idx = prompts.batch["input_ids"]
         # attention_mask: (bs, seq_length), left-padded
@@ -690,6 +737,8 @@ class SGLangRollout(BaseRollout):
             sglang_inputs = [
                 {"prompt_token_ids": raw_prompt_ids} for raw_prompt_ids in non_tensor_batch.pop("raw_prompt_ids")
             ]
+
+        logger.warning("SGLangRollout _batch_level_generate_sequences get inputs") # DEBUG
 
         for input_data in sglang_inputs:
             # Ensure token IDs are lists or numpy arrays
@@ -742,6 +791,7 @@ class SGLangRollout(BaseRollout):
         request_sampling_params.update(kwargs)
 
         logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
+
         if self._tp_rank == 0:
             loop = asyncio.get_event_loop()
             logger.warning(f"SGLangRollout self._engine class is: {self._engine}") # DEBUG
@@ -761,14 +811,18 @@ class SGLangRollout(BaseRollout):
                     image_data=image_list,
                 )
             )
+            dist.barrier()
         else:
+            dist.barrier()
             output = None
 
-        logger.warning(f"before dist.barrier()") # DEBUG
+        logger.warning(f"SGLangRollout Async success")
 
-        # Most naive implementation, can extract tensor and send via gloo if too slow
-        dist.barrier()
-        logger.warning(f"after dist.barrier()") # DEBUG
+        # logger.warning(f"before dist.barrier()") # DEBUG
+        # # Most naive implementation, can extract tensor and send via gloo if too slow
+        # dist.barrier()
+        # logger.warning(f"after dist.barrier()") # DEBUG
+
         [output] = broadcast_pyobj(
             data=[output],
             rank=self._rank,

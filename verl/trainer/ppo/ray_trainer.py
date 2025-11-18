@@ -331,6 +331,7 @@ class RayPPOTrainer:
         self.use_critic = need_critic(self.config)
         self.ray_worker_group_cls = ray_worker_group_cls
         self.device_name = device_name if device_name else self.config.trainer.device
+        logger.warning(f"RayPPOTrainer device_name: {self.device_name}") # DEBUG musa
         self.validation_generations_logger = ValidationGenerationsLogger(
             project_name=self.config.trainer.project_name,
             experiment_name=self.config.trainer.experiment_name,
@@ -874,6 +875,7 @@ class RayPPOTrainer:
         if self.config.trainer.resume_mode == "auto":
             if global_step_folder is None:
                 print("Training from scratch")
+                print(f"self.actor_rollout_wg is: {self.actor_rollout_wg}") # DEBUG
                 self.actor_rollout_wg.load_checkpoint(None)
                 return 0
         else:

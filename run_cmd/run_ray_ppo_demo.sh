@@ -98,7 +98,7 @@ ray job submit --address="10.18.33.9:65379" \
     trainer.n_gpus_per_node=1 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
-    trainer.save_freq=5 \
-    trainer.test_freq=10 \
+    trainer.save_freq=100 \
+    trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
 

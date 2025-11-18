@@ -203,7 +203,8 @@ class Worker(WorkerHelper):
             if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa" and os.getenv('MUSA_PATCH_PATH','') != '':
                 musa_patch_path = os.getenv('MUSA_PATCH_PATH','')
                 sys.path.append(musa_patch_path)
-                import musa_patch    
+                import musa_patch
+                print(f"musa_patch_path: {musa_patch_path}")
                 print('\n import musa patch success!\n')
             else:
                 print('\n skip musa patch \n')

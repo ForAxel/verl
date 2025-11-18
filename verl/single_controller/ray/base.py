@@ -314,9 +314,7 @@ class RayWorkerGroup(WorkerGroup):
         self.sub_cls_name = ""
         # self.device_name = kwargs.get("device_name", "cuda")
         self.device_name = kwargs.get("device_name", "musa")
-        logger.warning(f"self.device_name is: {self.device_name}")# DEBUG
         self.profile_steps = kwargs.get("profile_steps", None)
-        logger.warning(f"self.profile_steps is: {self.profile_steps}") # DEBUG
         self.worker_nsight_options = kwargs.get("worker_nsight_options", None)
         self.customized_worker_env = kwargs.get("worker_env", {})
         if self.worker_nsight_options is not None and self.worker_nsight_options["capture-range-end"] is None:
@@ -342,6 +340,9 @@ class RayWorkerGroup(WorkerGroup):
 
         self.wg_dict = None
         self.method_names = []
+
+        logger.warning(f"self.device_name is: {self.device_name}")# DEBUG
+        logger.warning(f"self.profile_steps is: {self.profile_steps}") # DEBUG None
 
     def _is_worker_alive(self, worker: ray.actor.ActorHandle):
         """Check if a worker actor is still alive.
@@ -431,8 +432,8 @@ class RayWorkerGroup(WorkerGroup):
                 cia_name = match.group(1) if match else cia_name  # "ActorClass(Obj)" -> "Obj"
                 name = f"{self.name_prefix}{cia_name}_{pg_idx}:{local_rank}"  # e.g. Worker_2:5
 
-                # if self.profile_steps and self.device_name == "cuda":
-                if self.profile_steps and (self.device_name == "cuda" or self.device_name == "musa"):
+                if self.profile_steps and self.device_name == "cuda":
+                # if self.profile_steps and (self.device_name == "cuda" or self.device_name == "musa"):
                     # assert 3==1 # debug
                     ray_cls_with_init.update_options(
                         {
