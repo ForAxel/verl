@@ -9,7 +9,7 @@ DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 # export MUSA_VISIBLE_DEVICES='7'
-export MUSA_EXECUTION_TIMEOUT=3200000
+# export MUSA_EXECUTION_TIMEOUT=30000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
@@ -49,15 +49,15 @@ env PYTHONPATH="$PYTHONPATH" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.33.9:65379" \
-python3 -m verl.trainer.main_ppo \
+    RAY_ADDRESS="10.18.32.9:65379" \
+python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
     data.train_batch_size=4 \
-    data.max_prompt_length=256 \
+    data.max_prompt_length=512 \
     data.max_response_length=32 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
@@ -93,6 +93,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     algorithm.use_kl_in_reward=False \
+    trainer.device='musa' \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
@@ -100,7 +101,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.n_gpus_per_node=1 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
-    trainer.save_freq=100 \
-    trainer.test_freq=100 \
+    trainer.save_freq=2 \
+    trainer.test_freq=4 \
     trainer.total_epochs=10 $@ \
-| tee ../logs/run_ppo_demo.log 2>&1
+    2>&1 | tee ../logs/run_ppo_demo.log

@@ -9,7 +9,7 @@ DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 # export MUSA_VISIBLE_DEVICES='7'
-export MUSA_EXECUTION_TIMEOUT=3200000
+# export MUSA_EXECUTION_TIMEOUT=30000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
@@ -61,19 +61,22 @@ export MCCL_BUFFSIZE=16777216       # 调整缓冲区大小
 export MCCL_TIMEOUT=180
 export MCCL_RETRIES=3
 
+export MUSA_ERROR_DUMP_VERBOSE=1
+
 env PYTHONPATH="$PYTHONPATH" \
-    MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
+    PYTHONUNBUFFERED=1 \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.33.9:65379" \
-python3 -m verl.trainer.main_ppo \
+    RAY_ADDRESS="10.18.32.9:65379" \
+    MUSA_ERROR_DUMP_VERBOSE=1 \
+python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=2 \
+    data.train_batch_size=8 \
     data.max_prompt_length=256 \
     data.max_response_length=32 \
     data.filter_overlong_prompts=True \
@@ -120,5 +123,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.nnodes=1 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
-    trainer.total_epochs=10 $@ \
-| tee ../logs/run_ppo_multiGPU.log 2>&1
+    trainer.total_epochs=10 \
+    data.dataloader_num_workers=0 \
+    actor_rollout_ref.rollout.agent.num_workers=0 $@ \
+    2>&1 | tee ../logs/run_ppo_tp2.log

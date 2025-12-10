@@ -95,6 +95,7 @@ def get_rollout_class(rollout_name: str, mode: str) -> type[BaseRollout]:
     Returns:
         The rollout class.
     """
+    #  ("sglang", "sync"): "verl.workers.rollout.sglang_rollout.sglang_rollout.SGLangRollout",
     assert (rollout_name, mode) in _ROLLOUT_REGISTRY, f"Rollout {rollout_name} with mode {mode} not found"
     fqdn = _ROLLOUT_REGISTRY[(rollout_name, mode)]
     module_name, class_name = fqdn.rsplit(".", 1)

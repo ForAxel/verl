@@ -30,6 +30,9 @@ try:
 except ImportError:
     pass
 
+import sys
+sys.path.insert(0, "/home/dist/zhaoping/Code/musa_patch/Megatron-LM")
+
 from accelerate import init_empty_weights
 from megatron.core import dist_checkpointing
 from megatron.core import parallel_state as mpu
@@ -564,8 +567,10 @@ if __name__ == "__main__":
             musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/dist/zhaoping/Code/verl-musa-patch')
             sys.path.append(musa_patch_path)
             import musa_patch    
+            print(f"\n ====== import musa patch successfully ======\n")
+            print(f"torch.musa.is_available(): {torch.musa.is_available()}")
         else:
-            print('skip musa patch')
+            print('\n ====== skip musa patch ======\n')
 
     apply_global_patch()
 

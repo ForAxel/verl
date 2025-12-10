@@ -35,10 +35,11 @@ def get_visible_devices_keyword() -> str:
     Returns:
         'CUDA_VISIBLE_DEVICES' or `ASCEND_RT_VISIBLE_DEVICES` or 'MUSA_VISIBLE_DEVICES'
     """
-    if is_cuda_available:
-        return "CUDA_VISIBLE_DEVICES"
-    elif is_musa_available:
+    if is_musa_available:
         return "MUSA_VISIBLE_DEVICES"
+        # return "CUDA_VISIBLE_DEVICES" # 直接使用 CUDA_VISIBLE_DEIVCES 管理
+    elif is_cuda_available:
+        return "CUDA_VISIBLE_DEVICES"
     else:
         return "ASCEND_RT_VISIBLE_DEVICES"
 
@@ -49,12 +50,12 @@ def get_device_name() -> str:
     Returns:
         device
     """
-    if is_cuda_available:
+    if is_musa_available:
+        device = 'musa'
+    elif is_cuda_available:
         device = "cuda"
     elif is_npu_available:
         device = "npu"
-    elif is_musa_available:
-        device = 'musa'
     else:
         device = "cpu"
     return device
@@ -90,12 +91,12 @@ def get_nccl_backend() -> str:
     Returns:
         nccl backend type string.
     """
-    if is_cuda_available:
+    if is_musa_available:
+        return 'mccl'
+    elif is_cuda_available:
         return "nccl"
     elif is_npu_available:
         return "hccl"
-    elif is_musa_available:
-        return 'mccl'
     else:
         raise RuntimeError(f"No available nccl backend found on device type {get_device_name()}.")
 
@@ -105,7 +106,7 @@ def set_expandable_segments(enable: bool) -> None:
     Args:
         enable (bool): Whether to enable expandable segments. Used to avoid OOM.
     """
-    if is_cuda_available:
-        torch.cuda.memory._set_allocator_settings(f"expandable_segments:{enable}")
-    elif is_musa_available:
+    if is_musa_available:
         torch.musa.memory._set_allocator_settings(f"expandable_segments:{enable}")
+    elif is_cuda_available:
+        torch.cuda.memory._set_allocator_settings(f"expandable_segments:{enable}")

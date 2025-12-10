@@ -29,9 +29,8 @@ from verl.utils.py_functional import temp_env_var
 
 __all__ = ["Worker"]
 
-import os
-logger = logging.getLogger(__file__)
-logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
+logger = logging.getLogger(__name__)
 
 
 def get_random_string(length: int) -> str:
@@ -134,6 +133,8 @@ class RayResourcePool(ResourcePool):
             if self.accelerator_type is not None:
                 bundle[self.accelerator_type] = 1e-4
         pg_scheme = [[bundle.copy() for _ in range(process_count)] for process_count in self._store]
+
+        logger.warning(f"RayResourcePool get_placement_groups pg_scheme: {pg_scheme}") # DEBUG
 
         lifetime = "detached" if self.detached else None
 
@@ -245,6 +246,7 @@ class RayClassWithInitArgs(ClassWithInitArgs):
             target_node_id = ray.get(sharing_with.get_node_id.remote())
             visible_devices = ray.get(sharing_with.get_cuda_visible_devices.remote())
             options = {"scheduling_strategy": NodeAffinitySchedulingStrategy(node_id=target_node_id, soft=False)}
+            logger.warning(f"RayClassWithInitArgs __call__ visible_devices: {visible_devices}")
             return self.cls.options(**options).remote(*self.args, cuda_visible_devices=visible_devices, **self.kwargs)
 
         options = {
@@ -265,9 +267,12 @@ class RayClassWithInitArgs(ClassWithInitArgs):
             for k, v in self._additional_resource.items():
                 options[k] = v
 
-        # print("cls:", self.cls)
-        # print("args: ", self.args)
-        # print("kwargs: ", self.kwargs)
+        # # DEBUG
+        # logger.warning(f"RayClassWithInitArgs __call__ sharing_with: {sharing_with}")
+        # logger.warning(f"RayClassWithInitArgs __call__ cls: {self.cls}")
+        # logger.warning(f"RayClassWithInitArgs __call__ args: {self.args}")
+        # logger.warning(f"RayClassWithInitArgs __call__ kwargs: {self.kwargs}")
+        # logger.warning(f"RayClassWithInitArgs __call__ options: {options}")
         return self.cls.options(**options).remote(*self.args, **self.kwargs)
 
 
@@ -278,7 +283,6 @@ class RayWorkerGroup(WorkerGroup):
     creating and managing groups of Ray actors with specific resource requirements
     and scheduling strategies.
     """
-    # TODO ATTN 
     def __init__(
         self,
         resource_pool: RayResourcePool = None,
@@ -304,7 +308,7 @@ class RayWorkerGroup(WorkerGroup):
             **kwargs: Additional keyword arguments
         """
         super().__init__(resource_pool=resource_pool, **kwargs)
-        self.ray_cls_with_init = ray_cls_with_init
+        self.ray_cls_with_init = ray_cls_with_init # verl.single_controller.ray.base.RayClassWithInitArgs
         self.name_prefix = get_random_string(length=6) if name_prefix is None else name_prefix
         self._ray_wait_register_center_timeout = ray_wait_register_center_timeout
         # Whether the WorkerGroup is a Colocate WorkerGroup created by FusedWorker.
@@ -330,8 +334,8 @@ class RayWorkerGroup(WorkerGroup):
             self._init_with_resource_pool(
                 resource_pool=resource_pool,
                 ray_cls_with_init=ray_cls_with_init,
-                bin_pack=bin_pack,
-                detached=detached,
+                bin_pack=bin_pack, # True
+                detached=detached, # False
                 worker_env=self.customized_worker_env,
             )
 
@@ -341,8 +345,8 @@ class RayWorkerGroup(WorkerGroup):
         self.wg_dict = None
         self.method_names = []
 
-        logger.warning(f"self.device_name is: {self.device_name}")# DEBUG
-        logger.warning(f"self.profile_steps is: {self.profile_steps}") # DEBUG None
+        logger.warning(f"RayWorkerGroup __init__ self.device_name is: {self.device_name}")# DEBUG
+        logger.warning(f"RayWorkerGroup __init__ self.profile_steps is: {self.profile_steps}") # DEBUG None
 
     def _is_worker_alive(self, worker: ray.actor.ActorHandle):
         """Check if a worker actor is still alive.
@@ -393,15 +397,16 @@ class RayWorkerGroup(WorkerGroup):
         world_size = resource_pool.world_size
         self._world_size = world_size
         # cia.add_kwarg("_world_size", world_size)
-        num_gpus = 1 / resource_pool.max_colocate_count
+        num_gpus = 1 / resource_pool.max_colocate_count # 1
 
         rank = -1
-        local_world_size = resource_pool.store[0]
+        local_world_size = resource_pool.store[0] # 每个节点上GPU总数
         for pg_idx, pg in enumerate(sort_placement_group_by_node_ip(pgs)):
             assert local_world_size <= pg.bundle_count, f"when generating for {self.name_prefix}, for the "
             if pg_idx == 0:
                 self._get_master_addr_port(pg)
 
+            # 每个GPU创建一个Worker
             for local_rank in range(local_world_size):
                 rank += 1
 
@@ -432,8 +437,10 @@ class RayWorkerGroup(WorkerGroup):
                 cia_name = match.group(1) if match else cia_name  # "ActorClass(Obj)" -> "Obj"
                 name = f"{self.name_prefix}{cia_name}_{pg_idx}:{local_rank}"  # e.g. Worker_2:5
 
-                if self.profile_steps and self.device_name == "cuda":
-                # if self.profile_steps and (self.device_name == "cuda" or self.device_name == "musa"):
+                logger.warning(f"RawWorkerGroup _init_with_resource_pool name: {name}, env_vars: {env_vars}") # DEBUG
+
+                # if self.profile_steps and self.device_name == "cuda":
+                if self.profile_steps and (self.device_name == "cuda" or self.device_name == "musa"):
                     # assert 3==1 # debug
                     ray_cls_with_init.update_options(
                         {
@@ -450,6 +457,9 @@ class RayWorkerGroup(WorkerGroup):
                 if detached:
                     ray_cls_with_init.update_options({"lifetime": "detached"})
 
+                logger.warning(f"RayWorkerGroup Rank: {local_rank}, ray_cls_with_init._options: {ray_cls_with_init._options}")
+                logger.warning(f"RayWorkerGroup Rank: {local_rank}, ray_cls_with_init._additional_resource: {ray_cls_with_init._additional_resource}")
+
                 # create a worker
                 worker = ray_cls_with_init(
                     placement_group=pg,
@@ -460,6 +470,10 @@ class RayWorkerGroup(WorkerGroup):
                 )
                 self._workers.append(worker)
                 self._worker_names.append(name)
+
+        # DEBUG 查看Ray创建的不同Worker
+        # logger.warning(f"self._worker_names: {self._worker_names}")
+        # logger.warning(f"self._workers: {self._workers}")
 
     @property
     def worker_names(self):
@@ -721,8 +735,6 @@ def _bind_workers_method_to_parent(cls, key, user_defined_cls):
                     # dispatch to the actual worker
                     return await getattr(self.worker_dict[key], name)(*args, **kwargs)
                 wrapper = async_func if inspect.iscoroutinefunction(method) else func  # noqa: B023
-                logger.warning(f"get wrapper success") # DEBUG
-                # assert 1==2 # DEBUG
                 return wrapper
 
             func = generate_function(method_name)
@@ -742,8 +754,6 @@ def _bind_workers_method_to_parent(cls, key, user_defined_cls):
                     setattr(cls, method_name_with_prefix, func)
             except Exception as e:
                 raise ValueError(f"Fail to set method_name {method_name}") from e
-
-            logger.warning(f"has_attr func success") # DEBUG
 
 
 def _unwrap_ray_remote(cls):
@@ -799,12 +809,12 @@ def create_colocated_worker_cls(class_dict: dict[str, RayClassWithInitArgs]):
                     self.worker_dict[key] = user_defined_cls(
                         *init_args_dict[key].get("args", ()), **init_args_dict[key].get("kwargs", {})
                     )
+            # assert 1==2 # 底层调用 Worker 的初始化函数进行了 _setup_env_cuda_visible_devices
 
     # now monkey-patch the methods from inner class to WorkerDict
     for key, user_defined_cls in cls_dict.items():
         user_defined_cls = _unwrap_ray_remote(user_defined_cls)
         _bind_workers_method_to_parent(WorkerDict, key, user_defined_cls)
-        logger.warning(f"_bind_workers_method_to_parent success") # DEBUG
 
     remote_cls = ray.remote(WorkerDict)
     remote_cls = RayClassWithInitArgs(cls=remote_cls)

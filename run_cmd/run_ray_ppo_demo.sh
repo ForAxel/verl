@@ -8,7 +8,7 @@ DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
 # export CUDA_DEVICE_MAX_CONNECTIONS=1 # For megatron communication/computation overlapping
 # export OMP_NUM_THREADS=4
-export MUSA_EXECUTION_TIMEOUT=3200000
+# export MUSA_EXECUTION_TIMEOUT=30000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
@@ -29,22 +29,22 @@ test_files=$DATASET_PATH/math_test.parquet
 CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
 
 
-# ray job submit --address="10.18.33.9:65379" \
+# ray job submit --address="10.18.32.9:65379" \
 #     --no-wait\
 #     -- \
 #     python -c "import ray;ray.init();print('Test job')" # demo test
 
-# RAY_ADDRESS="10.18.33.9:65379" python -c "import ray;ray.init();print('Test job direct connect Ray')"
+# RAY_ADDRESS="10.18.32.9:65379" python -c "import ray;ray.init();print('Test job direct connect Ray')"
 
 # # success
-# ray job submit --address="10.18.33.9:65379" \
+# ray job submit --address="10.18.32.9:65379" \
 #     --runtime-env=/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml \
 #     --no-wait\
 #     -- \
 #     python -c "import ray;ray.init();print('Test job with runtime env')"
 
 
-ray job submit --address="10.18.33.9:65379" \
+ray job submit --address="10.18.32.9:65379" \
     --runtime-env=/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml \
     --no-wait \
     -- \

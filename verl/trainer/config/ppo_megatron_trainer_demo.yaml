@@ -42,6 +42,8 @@ actor_rollout_ref:
 
     trust_remote_code: True
 
+    # enable_activation_offload: True #  actor 训练将 activation offload 到 CPU
+
   rollout:
     # may get higher throughput when set to True. When activated, Please increase max_num_batched_tokens or decrease max_model_len.
     enable_chunked_prefill: False
@@ -161,6 +163,12 @@ global_profiler:
 
         # Send signal to the target application's process group. We let the program to exit by itself.
         kill: none
+
+# configs for TransferQueue
+transfer_queue:
+
+  # Whether to enable transfer queue
+  enable: False
 
 ray_kwargs:
   ray_init:

@@ -51,6 +51,9 @@ def main(config):
     Args:
         config_dict: Hydra configuration dictionary containing training parameters.
     """
+    print(f"config type: {type(config)}")
+    OmegaConf.save(config, "/home/dist/zhaoping/Code/verl-musa-patch/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
+    # assert 1==2
     run_ppo(config)
 
 
@@ -84,6 +87,10 @@ def run_ppo(config, task_runner_class=None) -> None:
                 model paths, and training hyperparameters.
         task_runner_class: For recipe to change TaskRunner.
     """
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"START run_ppo, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
     # Check if Ray is not initialized
     if not ray.is_initialized():
         # Initialize Ray with a local cluster configuration
@@ -120,6 +127,11 @@ def run_ppo(config, task_runner_class=None) -> None:
             logging_level=logging.DEBUG,
         )
 
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"AFTER init Ray, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+    
+
     if task_runner_class is None:
         task_runner_class = ray.remote(num_cpus=1)(TaskRunner)  # please make sure main_task is not scheduled on head
 
@@ -139,7 +151,12 @@ def run_ppo(config, task_runner_class=None) -> None:
         )
         runner = task_runner_class.options(runtime_env={"nsight": nsight_options}).remote()
     else:
-        runner = task_runner_class.remote()
+        runner = task_runner_class.remote() # 创建类实例
+    
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"run_ppo, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
     ray.get(runner.run.remote(config)) # ATTN 容易出错位置
 
     # [Optional] get the path of the timeline trace file from the configuration, default to None
@@ -185,7 +202,7 @@ class TaskRunner:
                 AsyncActorRolloutRefWorker
                 if config.actor_rollout_ref.rollout.mode == "async"
                 else ActorRolloutRefWorker
-            )
+            ) # ActorRolloutRefWorker
             ray_worker_group_cls = RayWorkerGroup
 
         else:
@@ -193,6 +210,7 @@ class TaskRunner:
 
         from verl.trainer.ppo.ray_trainer import Role
 
+        # 通过 remote() 实例化一个远程 Actor 
         self.role_worker_mapping[Role.ActorRollout] = ray.remote(actor_rollout_cls)
 
         return actor_rollout_cls, ray_worker_group_cls
@@ -227,7 +245,9 @@ class TaskRunner:
         global_pool_id = "global_pool"
         resource_pool_spec = {
             global_pool_id: [config.trainer.n_gpus_per_node] * config.trainer.nnodes,
-        }
+        } # {"global_pool": [8]}
+
+        logger.warning(f"TaskRunner init_resource_pool_mgr resource_pool_spec: {resource_pool_spec}")
         
         # ATTN 沿用 0.5.0.dev 中的代码，这部分直接注释 可能需要添加新的命令行注释
         # print(f"config is: {config}")
@@ -300,10 +320,15 @@ class TaskRunner:
 
         from verl.utils.fs import copy_to_local
 
+        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+        logger.warning(f"TaskRunner run START, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
         print(f"TaskRunner hostname: {socket.gethostname()}, PID: {os.getpid()}")
         pprint(OmegaConf.to_container(config, resolve=True))
         OmegaConf.resolve(config)
 
+        # 获取对应的 ActorRolloutRefWorker 和 RayWorkerGroup 类
         actor_rollout_cls, ray_worker_group_cls = self.add_actor_rollout_worker(config)
         self.add_critic_worker(config)
 
@@ -342,12 +367,12 @@ class TaskRunner:
         # Load the reward manager for training and validation.
         reward_fn = load_reward_manager(
             config, tokenizer, num_examine=0, **config.reward_model.get("reward_kwargs", {})
-        )
+        ) # 训练用奖励函数
         val_reward_fn = load_reward_manager(
             config, tokenizer, num_examine=1, **config.reward_model.get("reward_kwargs", {})
-        )
+        ) # 测试用奖励函数
 
-        resource_pool_manager = self.init_resource_pool_mgr(config)
+        resource_pool_manager = self.init_resource_pool_mgr(config) # ResourcePoolManager class
 
         from verl.utils.dataset.rl_dataset import collate_fn
 
@@ -377,7 +402,7 @@ class TaskRunner:
             processor=processor,
             role_worker_mapping=self.role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
-            ray_worker_group_cls=ray_worker_group_cls,
+            ray_worker_group_cls=ray_worker_group_cls, # RayWorkerGroup
             reward_fn=reward_fn,
             val_reward_fn=val_reward_fn,
             train_dataset=train_dataset,
@@ -386,13 +411,18 @@ class TaskRunner:
             train_sampler=train_sampler,
         )
         print(f"trainer is: {trainer}")
+
+        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+        logger.warning(f"TaskRunner run, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
         # Initialize the workers of the trainer.
-        trainer.init_workers()
+        trainer.init_workers() # 将配置的 Worker 类实例化到Ray集群GPU
         logger.warning(f"trainer.init_workers() success")
         # assert 1==2 # DEBUG
         logger.warning(f"trainer.fit() start")
         # Start the training process.
-        trainer.fit()
+        trainer.fit() #启动PPO训练循环
 
 
 def create_rl_dataset(data_paths, data_config, tokenizer, processor, is_train=True, max_samples: int = -1):
