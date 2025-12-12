@@ -37,6 +37,8 @@ import os
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
+from pathlib import Path
+
 # # DEBUG patch
 # from verl.trainer.contiguous_patch import patch_tensor_operations, pre_distributed_check
 # patch_tensor_operations()
@@ -62,8 +64,11 @@ def get_ray_env_from_file():
     直接读取文件中的配置
     """
     import yaml
-
-    with open('/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml', 'r', encoding='utf-8') as file:
+    current_path = Path(__file__).resolve()
+    two_levels_up = current_path.parents[2] 
+    env_file_path = os.path.join(two_levels_up, "runtime_env.yaml")
+    logger.info(f"Ray env file path is: {env_file_path}")
+    with open(env_file_path, 'r', encoding='utf-8') as file:
         data = yaml.safe_load(file)
 
     #ATTN 强制修改了PYTHONPATH

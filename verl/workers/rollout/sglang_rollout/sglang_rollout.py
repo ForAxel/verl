@@ -822,7 +822,7 @@ class SGLangRollout(BaseRollout):
         # Update with any additional kwargs
         request_sampling_params.update(kwargs)
 
-        logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
+        # logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
 
         if self._tp_rank == 0:
             loop = asyncio.get_event_loop()
@@ -847,7 +847,7 @@ class SGLangRollout(BaseRollout):
             # dist.barrier()
         else:
             # dist.barrier()
-            logger.warning(f"TP_Rank: {self._tp_rank} sleep")
+            logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
             time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
             output = None
 
