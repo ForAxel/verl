@@ -180,6 +180,7 @@ class Worker(WorkerHelper):
         local_world_size = int(os.getenv("LOCAL_WORLD_SIZE", "1"))
         local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
+        # ATTN 这里配置os中的环境变量
         store = {
             "_world_size": world_size,
             "_rank": rank,

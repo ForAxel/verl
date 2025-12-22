@@ -180,7 +180,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
     def __init__(self, config: DictConfig, role: str, **kwargs):
         Worker.__init__(self)
-        self.config = config
+        self.config = config # 这里的config在 RayPPOTrainer 类中的 init_workers 函数中，通过包装为对应的 RayClassWithInitArgs来对应上了
         if repatch is not None:
             # NPU MindSpeed patch, will be refactored with MindSpeedEngine.
             repatch(self.config.actor.megatron.get("override_transformer_config", {}))
@@ -342,7 +342,9 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 bridge=self.bridge,
                 override_model_config=override_model_config,
                 override_ddp_config=override_ddp_config,
-            )
+            ) # Megatron 模型参数放置在 GPU 上了
+            # TODO 可以查看此时的显存占用
+            # torch.memory_allocated()
             print(f"actor_module: {len(actor_module)}")
             if self.config.actor.load_weight:
                 if self.config.actor.megatron.use_dist_checkpointing:
@@ -423,7 +425,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         from torch.distributed.device_mesh import init_device_mesh
 
         # 1. parse rollout and huggingface model config
-        rollout_config: RolloutConfig = omega_conf_to_dataclass(self.config.rollout)
+        rollout_config: RolloutConfig = omega_conf_to_dataclass(self.config.rollout) # ATTN 从config中获取rollout推理相关的配置
         model_config: HFModelConfig = omega_conf_to_dataclass(self.config.model, dataclass_type=HFModelConfig)
 
         # 创建张量并行网格
@@ -453,6 +455,12 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         get_torch_device().manual_seed(gen_dp_rank + 1000)  # make sure all tp ranks have the same random states
         self.gen_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.torch_random_states)
+
+        # DEBUG
+        dp_rank = rollout_device_mesh["dp"].get_local_rank()
+        infer_tp_rank = rollout_device_mesh["infer_tp"].get_local_rank()
+        infer_pp_rank = rollout_device_mesh["infer_pp"].get_local_rank()
+        logger.warning(f"_build_rollout dp_rank: {dp_rank}, infer_tp_rank: {infer_tp_rank}, infer_pp_rank: {infer_pp_rank}")
 
         # 4. build rollout model
         log_gpu_memory_usage(f"Before building {self.config.rollout.name} rollout", logger=logger)

@@ -90,8 +90,9 @@ class ResourcePoolManager:
             # that can utilize different WorkerGroup for differnt models
             resource_pool = RayResourcePool(
                 process_on_nodes=process_on_nodes, use_gpu=True, max_colocate_count=1, name_prefix=resource_pool_name
+                # process_on_nodes=process_on_nodes, use_gpu=True, max_colocate_count=2, name_prefix=resource_pool_name
             )
-            self.resource_pool_dict[resource_pool_name] = resource_pool
+            self.resource_pool_dict[resource_pool_name] = resource_pool # {"global_pool": RayResourcePool obj}
 
         self._check_resource_available()
 
@@ -699,7 +700,7 @@ class RayPPOTrainer:
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
             actor_rollout_cls = RayClassWithInitArgs(
                 cls=self.role_worker_mapping[Role.ActorRollout],
-                config=self.config.actor_rollout_ref,
+                config=self.config.actor_rollout_ref, # 获取对应的config
                 role=str(Role.ActorRollout),
             )
             self.resource_pool_to_cls[resource_pool][str(Role.ActorRollout)] = actor_rollout_cls
@@ -764,7 +765,7 @@ class RayPPOTrainer:
             logger.warning(f'RayPPOTrainer init_workers class dict {class_dict.keys()}') # DEBUG
             worker_dict_cls = create_colocated_worker_cls(class_dict=class_dict) # verl.single_controller.ray.base.RayClassWithInitArgs
             logger.warning("create_colocated_worker_cls success") # DEBUG
-            # ATTN 这里基于 ray_worker_group_cls（RayWorkerGroup）类已经进行了实例化
+            # ATTN 这里基于 ray_worker_group_cls（ RayWorkerGroup ）类已经进行了实例化
             wg_dict = self.ray_worker_group_cls(
                 resource_pool=resource_pool, # verl.single_controller.ray.base.RayResourcePool
                 ray_cls_with_init=worker_dict_cls, # verl.single_controller.ray.base.RayClassWithInitArgs
@@ -774,7 +775,6 @@ class RayPPOTrainer:
             all_wg.update(spawn_wg)
         
         # DEBUG 上面已经进行了类的实例化
-        # assert 1==2
 
         # 3. 调用 init_model() 完成各个模型加载
         if self.use_critic:
@@ -794,7 +794,7 @@ class RayPPOTrainer:
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg[str(Role.ActorRollout)]
         logger.warning(f'RayPPOTrainer before actor init {torch.musa.current_device()}') # DEBUG
-        self.actor_rollout_wg.init_model()
+        self.actor_rollout_wg.init_model() # ATTN 这里调用ActorRolloutRefWorker类的init_model，进一步调用 _build_rollout 初始化SGLangRollout类
         logger.warning(f'RayPPOTrainer FINISH actor init {torch.musa.current_device()}') # DEBUG
 
         # create async rollout manager and request scheduler

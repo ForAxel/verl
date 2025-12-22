@@ -134,14 +134,14 @@ class RayResourcePool(ResourcePool):
                 bundle[self.accelerator_type] = 1e-4
         pg_scheme = [[bundle.copy() for _ in range(process_count)] for process_count in self._store]
 
-        logger.warning(f"RayResourcePool get_placement_groups pg_scheme: {pg_scheme}") # DEBUG
+        logger.warning(f"RayResourcePool get_placement_groups pg_scheme: {pg_scheme}") # DEBUG [[{'CPU': 1, 'GPU': 1}, {'CPU': 1, 'GPU': 1}, {'CPU': 1, 'GPU': 1}, {'CPU': 1, 'GPU': 1}]]
 
         lifetime = "detached" if self.detached else None
 
         pgs = [
             placement_group(bundles=bundles, strategy=strategy, name=pg_name_prefix + str(idx), lifetime=lifetime)
             for idx, bundles in enumerate(pg_scheme)
-        ]
+        ] # [PlacementGroup objs]
 
         ray.get([pg.ready() for pg in pgs])
 
@@ -249,6 +249,7 @@ class RayClassWithInitArgs(ClassWithInitArgs):
             logger.warning(f"RayClassWithInitArgs __call__ visible_devices: {visible_devices}")
             return self.cls.options(**options).remote(*self.args, cuda_visible_devices=visible_devices, **self.kwargs)
 
+        # ATTN 调度策略
         options = {
             "scheduling_strategy": PlacementGroupSchedulingStrategy(
                 placement_group=placement_group, placement_group_bundle_index=placement_group_bundle_idx
@@ -273,6 +274,8 @@ class RayClassWithInitArgs(ClassWithInitArgs):
         # logger.warning(f"RayClassWithInitArgs __call__ args: {self.args}")
         # logger.warning(f"RayClassWithInitArgs __call__ kwargs: {self.kwargs}")
         # logger.warning(f"RayClassWithInitArgs __call__ options: {options}")
+
+        # TODO 查看此时是否知道机器在哪
         return self.cls.options(**options).remote(*self.args, **self.kwargs)
 
 
@@ -393,7 +396,7 @@ class RayWorkerGroup(WorkerGroup):
         strategy = "PACK"
         if bin_pack:
             strategy = "STRICT_PACK"
-        pgs = resource_pool.get_placement_groups(strategy=strategy, device_name=self.device_name)
+        pgs = resource_pool.get_placement_groups(strategy=strategy, device_name=self.device_name) # [PlacementGroup]
         world_size = resource_pool.world_size
         self._world_size = world_size
         # cia.add_kwarg("_world_size", world_size)
@@ -420,7 +423,7 @@ class RayWorkerGroup(WorkerGroup):
                     "MASTER_ADDR": self._master_addr,
                     "MASTER_PORT": self._master_port,
                 }
-                if worker_env is not None:
+                if worker_env is not None: # pass
                     logging.debug(f"Appending ray class env, origin: {env_vars}, customized env: {worker_env}")
                     conflict_env_vars = set(env_vars.keys()) & set(worker_env.keys())
                     if len(conflict_env_vars) > 0:
@@ -800,6 +803,7 @@ def create_colocated_worker_cls(class_dict: dict[str, RayClassWithInitArgs]):
         def __init__(self):
             super().__init__()
             self.worker_dict = {}
+            # TODO 查看初始化顺序
             for key, user_defined_cls in cls_dict.items():
                 user_defined_cls = _unwrap_ray_remote(user_defined_cls)
                 # directly instantiate the class without remote

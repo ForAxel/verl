@@ -67,7 +67,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.ppo_mini_batch_size=2 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=2 \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -76,10 +76,10 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
-    actor_rollout_ref.rollout.n=3 \
+    actor_rollout_ref.rollout.n=2 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
     actor_rollout_ref.rollout.top_p=0.95 \
@@ -88,7 +88,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=2 \
+    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -103,4 +103,4 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/run_ppo_dp2tp2.log
+    2>&1 | tee ../logs/run_ppo_dp4.log

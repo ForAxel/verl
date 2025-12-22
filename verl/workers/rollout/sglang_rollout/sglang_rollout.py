@@ -112,6 +112,7 @@ def _set_envs_and_config(server_args: ServerArgs):
     os.environ["MCCL_NVLS_ENABLE"] = str(int(server_args.enable_nccl_nvls))
     os.environ["TORCH_MCCL_AVOID_RECORD_STREAMS"] = "1"
     os.environ["MUSA_DEVICE_MAX_CONNECTIONS"] = "4"
+    # os.environ["MUSA_DEVICE_MAX_CONNECTIONS"] = "8" # ATTN
     os.environ["MUSA_MODULE_LOADING"] = "AUTO"
 
     # Set prometheus env vars
@@ -272,6 +273,7 @@ def get_tool_call_parser_type(
         raise ValueError(f"No tool call parser found for processing_class {processing_class}")
 
 
+# ActorRolloutRefWorker 类 _build_rollout 函数调用，引入推理框架
 class SGLangRollout(BaseRollout):
     def __init__(
         self,
@@ -508,7 +510,7 @@ class SGLangRollout(BaseRollout):
                 "model_path": actor_module,
                 "dtype": self.config.dtype,
                 "mem_fraction_static": self.config.gpu_memory_utilization,
-                "enable_memory_saver": True,
+                "enable_memory_saver": True, # 启动 torch-memory-saver
                 "base_gpu_id": 0,
                 "gpu_id_step": 1,
                 "tp_size": self._tp_size,
@@ -540,6 +542,11 @@ class SGLangRollout(BaseRollout):
             }
 
             args['base_gpu_id'] = int(os.environ.get('RANK',0)) # ATTN 修改RANK
+            # if "DeepSeek" in actor_module:
+                # logger.warning(f"Model: {actor_module}, set enable_dp_attention=True")
+                # args['enable_dp_attention'] = True # 对MoE模型开注意力数据并行
+                # args['dtype'] = "bfloat16" # 上面已经设置了，这里相当于重复设置了一次
+             
 
             # logger.warning(f"SGLang Rollout engine args: {args}")
             # import json
@@ -547,7 +554,7 @@ class SGLangRollout(BaseRollout):
             #     json.dump(args, f)
             # assert 1==2
 
-            logger.warning(f"is_server_mode:{is_server_mode}")
+            logger.warning(f"SGLangRollout is_server_mode:{is_server_mode}, current_device: {torch.musa.current_device()}")
 
             if is_server_mode: # False
                 # add server specific args
