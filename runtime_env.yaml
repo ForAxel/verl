@@ -6,7 +6,7 @@ env_vars:
   # ====== xpu debug ======
   MCCL_LIB: "/usr/local/musa/lib/libmccl.so"
   LOCAL_WORLD_SIZE: "2" # 8
-  XPU_TIMER_TIMELINE_PATH: "/home/dist/zhaoping/Code/verl-musa-patch/verl/run_cmd/xputimer_debug"
+#  XPU_TIMER_TIMELINE_PATH: "/home/dist/zhaoping/Code/verl-musa-patch/verl/run_cmd/xputimer_debug"
   # XPU_TIMER_HANG_TIMEOUT: "240" # Hang检测超时设置小于kernel execution timeout （单位：秒？）
   XPU_TIMER_HANG_TIMEOUT: "60"
   XPU_TIMER_PORT: "18889"
@@ -48,9 +48,9 @@ env_vars:
   MCCL_CHECK_POINTERS: "0"
   VERL_LOGGING_LEVEL: "INFO"
   HYDRA_FULL_ERROR: "1"
-  MUSA_PATCH_PATH: "/home/dist/zhaoping/Code/verl-musa-patch"
-  MEGATRON_PATH: "/home/dist/zhaoping/Code/musa_patch/Megatron-LM"
-  VERL_PATH: "/home/dist/zhaoping/Code/verl-musa-patch/verl"
+  MUSA_PATCH_PATH: "/home/megatron-lm-musa-patch"
+  MEGATRON_PATH: "/home/Megatron-LM"
+  VERL_PATH: "/mnt/seed17/001688/libingqiang/verl"
   PYTHONPATH: "$MEGATRON_PATH:$VERL_PATH:$PYTHONPATH"
   VLLM_USE_V1: "0"
   ACCELERATE_USE_FSDP: "1"

@@ -48,6 +48,7 @@ class Profiler:
             assert not config.enable, "tool_config must be provided when profiler is enabled"
         self.prof = None
         self.saved = False
+        self.running = False
         self.enable = config.enable
         if not config.enable:
             return
@@ -56,62 +57,121 @@ class Profiler:
         self.rank = torch.distributed.get_rank()
         # we need to validate the config before using the profiler
         self._validate()
-        if self.rank in self.config.profile_ranks:
+        if self.config.all_ranks or self.rank in self.config.ranks:
             print(f"[Profiler] Profiler init for rank {self.rank}")
 
             self.prof = torch.profiler.profile(
                 activities=[
                     torch.profiler.ProfilerActivity.CPU,
-                    # torch.profiler.ProfilerActivity.CUDA,
-                    torch.profiler.ProfilerActivity.MUSA,
+                    torch.profiler.ProfilerActivity.CUDA,
                 ],
-                schedule=torch.profiler.schedule(
-                    wait=max(self.tool_config.step_start - 1, 0),
-                    warmup=1 if self.tool_config.step_start > 0 else 0,
-                    active=self.tool_config.step_end - self.tool_config.step_start,
-                    repeat=1,
-                ),
                 record_shapes=True,
                 with_stack=True,
             )
+        # if self.rank in self.config.profile_ranks:
+        #     print(f"[Profiler] Profiler init for rank {self.rank}")
+        #
+        #     self.prof = torch.profiler.profile(
+        #         activities=[
+        #             torch.profiler.ProfilerActivity.CPU,
+        #             # torch.profiler.ProfilerActivity.CUDA,
+        #             torch.profiler.ProfilerActivity.MUSA,
+        #         ],
+        #         schedule=torch.profiler.schedule(
+        #             wait=max(self.tool_config.step_start - 1, 0),
+        #             warmup=1 if self.tool_config.step_start > 0 else 0,
+        #             active=self.tool_config.step_end - self.tool_config.step_start,
+        #             repeat=1,
+        #         ),
+        #         record_shapes=True,
+        #         with_stack=True,
+        #     )
 
     def _validate(self):
         if self.enable:
-            if self.config.profile_ranks is None:
+            if not self.config.all_ranks and not self.config.ranks:
                 print("[WARNING] Profile ranks is not set, default to rank 0")
-                self.config.profile_ranks = [0]
+                self.config.ranks = [0]
             assert self.tool_config.step_start >= 0, "[ERROR] Profile step start must be greater than 0"
             assert self.tool_config.step_end >= 0, "[ERROR] Profile step end must be greater than 0"
             assert self.tool_config.step_start < self.tool_config.step_end, (
                 "[ERROR] Profile step start must be less than step end"
             )
 
+    # def _validate(self):
+    #     if self.enable:
+    #         if self.config.profile_ranks is None:
+    #             print("[WARNING] Profile ranks is not set, default to rank 0")
+    #             self.config.profile_ranks = [0]
+    #         assert self.tool_config.step_start >= 0, "[ERROR] Profile step start must be greater than 0"
+    #         assert self.tool_config.step_end >= 0, "[ERROR] Profile step end must be greater than 0"
+    #         assert self.tool_config.step_start < self.tool_config.step_end, (
+    #             "[ERROR] Profile step start must be less than step end"
+    #         )
+
     def check(self):
         return self.prof is not None and self.enable
 
-    def start(self):
-        if self.check():
+    def start(self, **kwargs):
+        if self.check() and not self.running:
             print(f"[Profiler] started for rank {self.rank}")
-            self.prof.start()
+            try:
+                self.prof.start()
+            except RuntimeError as e:
+                if "Profiler is already enabled" in str(e):
+                    print(f"[Profiler] Warning: {e}. Ignoring start request.")
+                else:
+                    raise e
+            self.running = True
+
+    # def start(self):
+    #     if self.check():
+    #         print(f"[Profiler] started for rank {self.rank}")
+    #         self.prof.start()
 
     def step(self):
         if self.check():
             self.prof.step()
 
-    def stop(self):
-        if self.check():
+    def stop(self, **kwargs):
+        if self.check() and self.running:
             print(f"[Profiler] stopped for rank {self.rank}")
-            self.prof.stop()
+            try:
+                self.prof.stop()
+            except RuntimeError as e:
+                # catch "Can't disable Kineto profiler when it's not running"
+                print(f"[Profiler] Warning: {e}")
+            self.running = False
+            self.save()
+
+    # def stop(self):
+    #     if self.check():
+    #         print(f"[Profiler] stopped for rank {self.rank}")
+    #         self.prof.stop()
+
 
     def save(self):
         if self.prof is not None and not self.saved:
             if not os.path.exists(self.config.save_path):
                 os.makedirs(self.config.save_path)
-            save_file_name = f"/prof_start_{self.config.step_start}_end_{self.config.step_end}_rank_{self.rank}.json"
+            save_file_name = f"/prof_start_{self.tool_config.step_start}_end_{self.tool_config.step_end}_rank_{self.rank}.json"
             print(f"[Profiler] Saving trace to {self.config.save_path + save_file_name}")
-            self.prof.export_chrome_trace(self.config.save_path + save_file_name)
+            try:
+                self.prof.export_chrome_trace(self.config.save_path + save_file_name)
+            except Exception as e:
+                print(f"[Profiler] Error saving trace: {e}")
             self.enable = False
             self.saved = True
+
+    # def save(self):
+    #     if self.prof is not None and not self.saved:
+    #         if not os.path.exists(self.config.save_path):
+    #             os.makedirs(self.config.save_path)
+    #         save_file_name = f"/prof_start_{self.config.step_start}_end_{self.config.step_end}_rank_{self.rank}.json"
+    #         print(f"[Profiler] Saving trace to {self.config.save_path + save_file_name}")
+    #         self.prof.export_chrome_trace(self.config.save_path + save_file_name)
+    #         self.enable = False
+    #         self.saved = True
 
     def stop_and_save(self):
         if self.check():
