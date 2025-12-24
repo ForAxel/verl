@@ -17,7 +17,7 @@ The main entry point to run the PPO algorithm
 
 import datetime
 import logging
-import os
+import os, pickle
 import time
 from typing import Any, Optional
 
@@ -385,7 +385,15 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                     load_mcore_dist_weights(
                         ref_module, self.config.ref.megatron.dist_checkpointing_path, is_value_model=False
                     )
-                else:
+                    # DEBUG 这里保存到本地文件查看后，不存在nan值
+                    # logger.warning(f"ref_module class: {type(ref_module)}")
+                    # for i,val in enumerate(ref_module):
+                    #     logger.warning(f"{i}-th ele, type: {type(val)}")
+                    # save_path = f"/home/dist/zhaoping/Code/verl-musa-patch/verl/tmp_data/pid{os.getpid()}_ref_module.pkl"
+                    # with open(save_path, "wb") as f:
+                    #     model_state_dict = ref_module[0].state_dict()
+                    #     pickle.dump(model_state_dict, f)
+                else: # 不使用checkpoint的方式
                     if self.bridge is not None:
                         print("use_dist_checkpointing==False, bridge is not None")
                         local_model_path = get_hf_model_path(self.config)
@@ -397,6 +405,15 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                         )
                 logger.warning(f"load ref weight end!") # DEBUG
             log_gpu_memory_usage("After ref module init", logger=logger)
+            # # DEBUG 检查数据, 没有发现有nan值
+            # for weight_name, weight_tensor in ref_module[0].state_dict().items():
+            #     if weight_tensor==None:
+            #         logger.warning(f"_build_model_optimizer {weight_name} is None")
+            #         continue
+            #     if torch.any(torch.isnan(weight_tensor)):
+            #         isnan_num = torch.isnan(weight_tensor).sum()
+            #         inum = torch.numel(weight_tensor)
+            #         logger.warning(f"_build_model_optimizer {weight_name} shape: {weight_tensor.shape}, has nan value, nan num: {isnan_num}, ratio: {isnan_num/inum}")
             return ref_module, self.hf_config
 
         # TODO: add more optimizer args into config
@@ -413,7 +430,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         log_gpu_memory_usage("After actor optimizer init", logger=logger)
 
-        print(f"_build_model_optimizer finish") # DEBUG
+        logger.info(f"_build_model_optimizer finish") # DEBUG
         return actor_module, actor_optimizer, actor_optimizer_scheduler, self.hf_config, optim_config
 
     def _build_rollout(self, trust_remote_code=False):

@@ -1121,6 +1121,8 @@ class RayPPOTrainer:
                     )
                 batch: DataProto = DataProto.from_single_dict(batch_dict)
 
+                # print(f"RayPPOTrainer fit Raw batch is: {batch}") # ATTN 这里数据就已经被tokenizer处理了
+
                 # add uid to batch
                 batch.non_tensor_batch["uid"] = np.array(
                     [str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object
@@ -1143,6 +1145,7 @@ class RayPPOTrainer:
                             # DEBUG 在这里卡住
                             print(f"RayPPOTrainer fit self.actor_rollout_wg is: {self.actor_rollout_wg}")
                             print(f"gen_batch_output type: {type(gen_batch_output)}, length: {len(gen_batch_output)}")
+                            # print(f"gen_batch_output.batch: {gen_batch_output.batch}")
                             # 调用 ActorRolloutRefWorker 类的 generate_sequences 函数 
                             # ray::WorkerDict.actor_rollout_generate_sequences 进程 ?
                             gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch_output)

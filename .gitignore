@@ -138,3 +138,5 @@ main_ppo_config
 *.diff
 *.mudmp
 NV_rl_post_training
+
+tmp_data

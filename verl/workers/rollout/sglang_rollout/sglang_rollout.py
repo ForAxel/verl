@@ -92,6 +92,7 @@ logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 import time
+import pickle
 
 # patch to avoid issue https://github.com/sgl-project/sglang/issues/6723
 def _set_envs_and_config(server_args: ServerArgs):
@@ -576,6 +577,7 @@ class SGLangRollout(BaseRollout):
         self.sharding_manager = None
         self.is_sleep = True
 
+    # ATTN 初始化采样参数
     def _init_sampling_params(self, **kwargs):
         kwargs = dict(
             n=1,
@@ -681,6 +683,7 @@ class SGLangRollout(BaseRollout):
             response_mask: | 1, 1, 1, ..., 1, 1 | 0, 0, .., 0, 0 | 1, 1, 1, ..., 1, 1 | 0, 0, ..., 0|
         """
         print(f"sglang_rollout.py self.config.multi_turn.enable: {self.config.multi_turn.enable}") # DEBUG
+        logger.warning(f"sglang_rollout.py generate_sequences prompts.batch: {prompts.batch}")
         if self.config.multi_turn.enable: # False
             return self._req_level_generate_sequences(prompts, **kwargs)
         return self._batch_level_generate_sequences(prompts, **kwargs)
@@ -777,7 +780,7 @@ class SGLangRollout(BaseRollout):
                 {"prompt_token_ids": raw_prompt_ids} for raw_prompt_ids in non_tensor_batch.pop("raw_prompt_ids")
             ]
 
-        logger.warning("SGLangRollout _batch_level_generate_sequences get inputs") # DEBUG
+        # logger.warning("SGLangRollout _batch_level_generate_sequences get inputs") # DEBUG
 
         for input_data in sglang_inputs:
             # Ensure token IDs are lists or numpy arrays
@@ -837,6 +840,11 @@ class SGLangRollout(BaseRollout):
             # verl.workers.rollout.sglang_rollout.sglang_rollout.AsyncEngine
             request_sampling_params["repetition_penalty"] = 1.1 # DEBUG 手动修改参数
             logger.warning(f"SGLangRollout request_sampling_params: {request_sampling_params}") # DEBUG
+            # # DEBUG 存储generate阶段的input_id
+            # # logger.warning(f"SGLangRollout _batch_level_generate_sequences input_ids: {idx_list}")
+            # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/tmp_data/sglang_rollout_input_ids.pkl", "wb") as f:
+            #     pickle.dump(idx_list, f)
+
             # assert 1==2 # DEBUG
             # {'n': 1, 'max_new_tokens': 32, 'presence_penalty': 0.0, 'frequency_penalty': 0.0, 
             # 'repetition_penalty': 1.0, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 
@@ -1661,11 +1669,13 @@ class SGLangRollout(BaseRollout):
 
         # 分批更新权重 每次循环调用生成器
         for i, params_batch in enumerate(get_named_tensor_buckets(weights, update_weights_bucket_bytes)):
-            # # DEBUG
-            # batch_param_num = 0
-            # for weight_name, weight_tensor in params_batch:
-            #     batch_param_num += 1
-            #     logger.warning(f"Rank: {self._rank}, weight: {weight_name}, shape: {weight_tensor.shape}, device: {weight_tensor.device}")
+            # DEBUG
+            batch_param_num = 0
+            for weight_name, weight_tensor in params_batch:
+                batch_param_num += 1
+                # logger.warning(f"Rank: {self._rank}, weight: {weight_name}, shape: {weight_tensor.shape}, device: {weight_tensor.device}")
+                if torch.any(torch.isnan(weight_tensor)):
+                    logger.warning(f"Rank: {self._rank}, weight: {weight_name}, shape: {weight_tensor.shape}, isnanNum: {torch.isnan(weight_tensor).sum()}")
             # logger.warning(f"Rank: {self._rank}, SGLangRollout update_weights split: {i}, batch_param_num: {batch_param_num}")
 
             # 调用 SGLang python/sglang/srt/weight_sync/utils.py 中 update_weights 函数
