@@ -499,9 +499,12 @@ class SGLangRollout(BaseRollout):
         if self.config.mode == "async" and not self.config.skip_tokenizer_init:
             raise ValueError("async mode requires skip_tokenizer_init to be True")
         # backend = attention_backend if attention_backend is not None else "fa3"
-        
-        backend = None # ATTN 是否要替换backend？ 单卡的时候需要设置为 None，不然会报错
+        # backend = attention_backend if attention_backend is not None else "flashinfer"
+        # backend = attention_backend if attention_backend is not None else "triton"
+        # backend = None # ATTN 是否要替换backend？ 单卡的时候需要设置为 None，不然会报错
+        backend = "triton"
         logger.warning(f"SGLangRollout backend: {backend}") # DEBUG
+
         logger.warning(f"SGLangRollout effective_first: {effective_first}, is_server_mode: {is_server_mode}")
         
         if effective_first: # Rank0=True 其他rank为False
@@ -858,10 +861,7 @@ class SGLangRollout(BaseRollout):
                     image_data=image_list,
                 )
             )
-            # time.sleep(10)
-            # dist.barrier()
         else:
-            # dist.barrier()
             logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
             time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
             output = None
@@ -1685,6 +1685,7 @@ class SGLangRollout(BaseRollout):
                 device_mesh_key="infer_tp",
                 device_mesh=self.device_mesh,
             )
+            # dist.barrier() # ATTN 尝试直接在这里做同步，不行，依旧会导致阻塞
             # tp_rank 非0进程会重新开始一轮循环，在 per_tensor_generator 函数中 存在 all-gather 操作
 
         logger.warning(f"Rank: {self._rank}, FINISH update weights")
