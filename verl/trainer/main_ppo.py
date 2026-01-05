@@ -54,13 +54,14 @@ def get_ray_env_from_file():
     """
     import yaml
 
-    with open('/home/dist/zhaoping/Code/verl-musa-patch/runtime_env.yaml', 'r', encoding='utf-8') as file:
+    with open('/mnt/seed17/001688/shenyichong/verl/runtime_env.yaml', 'r', encoding='utf-8') as file:
         data = yaml.safe_load(file)
-    musa_path = data["env_vars"]["MUSA_PATCH_PATH"]
-    megatron_path = data["env_vars"]["MEGATRON_PATH"]
-    raw_python_path = data["env_vars"]["PYTHONPATH"]
-    # data["env_vars"]["PYTHONPATH"] = f"{musa_path}:{megatron_path}:{raw_python_path}:{os.environ.get('PYTHONPATH', '')}"
-    data["env_vars"]["PYTHONPATH"] = f"{raw_python_path}:{os.environ.get('PYTHONPATH', '')}"
+    MEGATRON_PATH = data["env_vars"]["MEGATRON_PATH"]
+    VERL_PATH = data["env_vars"]["VERL_PATH"]
+    MUSA_PATCH_PATH = data["env_vars"]["MUSA_PATCH_PATH"]
+    custom_python_path = f"{MEGATRON_PATH}:{MUSA_PATCH_PATH}:{VERL_PATH}"
+    data["env_vars"]["PYTHONPATH"] = custom_python_path
+    print(f"\n custom_python_path: {custom_python_path} \n\n")
     # print(data["env_vars"]["PYTHONPATH"])
     # exit()
     return data
@@ -106,8 +107,8 @@ def run_ppo(config, task_runner_class=None) -> None:
         # )
 
         sys_runtime_env = get_ray_env_from_file()
-        custom_python_path = "/home/dist/zhaoping/Code/musa_patch/Megatron-LM:/home/dist/zhaoping/Code/verl-musa-patch:/home/dist/zhaoping/Code/verl-musa-patch/verl"
-        sys_runtime_env["env_vars"]["PYTHONPATH"] = custom_python_path
+        # custom_python_path = "/home/dist/zhaoping/Code/musa_patch/Megatron-LM:/home/dist/zhaoping/Code/verl-musa-patch:/home/dist/zhaoping/Code/verl-musa-patch/verl"
+        # sys_runtime_env["env_vars"]["PYTHONPATH"] = custom_python_path
         print(f"\n runtime_env: {sys_runtime_env} \n\n")
         #ATTN 强制修改了PYTHONPATH
         ray.init(

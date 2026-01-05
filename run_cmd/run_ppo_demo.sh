@@ -4,8 +4,8 @@
 set -x
 
 # 直接使用下载的模型参数和mcore参数
-HF_MODEL_PATH='/home/dist/zhaoping/LLMs/Qwen3-1.7B'
-DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
+HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B'
+DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B-mcore'
 
 # export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 export MUSA_VISIBLE_DEVICES='7'
@@ -26,18 +26,18 @@ export VERL_LOGGING_LEVEL=INFO #INFO
 export HYDRA_FULL_ERROR=1
 #export MUSA_USERQ=1
 
-# export MUSA_PATCH_PATH=/home/dist/zhaoping/Code/verl-musa-patch
-export MEGATRON_PATH=/home/dist/zhaoping/Code/musa_patch/Megatron-LM
-export VERL_PATH=/home/dist/zhaoping/Code/verl-musa-patch/verl
+export MUSA_PATCH_PATH=/home/megatron-lm-musa-patch
+export MEGATRON_PATH=/home/Megatron-LM
+export VERL_PATH=/mnt/seed17/001688/shenyichong/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
 
 
-DATASET_PATH="/home/dist/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
+DATASET_PATH="/mnt/seed17/001688/wanglele/datasets/AM-Thinking-v1-RL-Dataset"
 train_files=$DATASET_PATH/math_train.parquet
 test_files=$DATASET_PATH/math_test.parquet
 
 # 需要指定到 Verl 中对应config路径
-CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
+CONFIG_PATH=$VERL_PATH/verl/trainer/config
 
 
 # # 解决保存问题
@@ -49,7 +49,7 @@ env PYTHONPATH="$PYTHONPATH" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.33.9:65379" \
+    RAY_ADDRESS="localhost:65379" \
 python3 -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
@@ -69,8 +69,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
-    actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
+    actor_rollout_ref.actor.megatron.use_dist_checkpointing=False \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
@@ -78,7 +77,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=sglang \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
     actor_rollout_ref.rollout.n=2 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
@@ -90,8 +89,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.expert_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
-    actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
+    actor_rollout_ref.ref.megatron.use_dist_checkpointing=False \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \

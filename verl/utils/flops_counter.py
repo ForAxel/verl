@@ -102,6 +102,10 @@ def get_device_flops(unit="T"):
     elif "RTX 3070 Ti" in device_name:
         flops = 21.75e12
     elif '5000' in device_name:
+        print(f"----- using {device_name} to calculate flops ------")
+        flops = 458e12
+    elif 'MTT S5000' in device_name:
+        print(f"----- using {device_name} to calculate flops ------")
         flops = 458e12
     flops_unit = unit_convert(flops, unit)
     return flops_unit

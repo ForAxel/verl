@@ -477,7 +477,11 @@ class SGLangRollout(BaseRollout):
                 # In async mode, we want token in token out.
                 "skip_tokenizer_init": self.config.skip_tokenizer_init,
                 "dist_timeout": 1800,
+                "disable_custom_all_reduce": True,
             }
+
+            # Merge engine_kwargs into args to allow overriding/adding parameters from config
+            args.update(engine_kwargs)
 
             if is_server_mode:
                 # add server specific args
