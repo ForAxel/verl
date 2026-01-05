@@ -32,7 +32,7 @@ from .decorator import Dispatch, Execute, register
 
 import os, logging
 logger = logging.getLogger(__file__)
-logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+# logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 @dataclass
 class DistRankInfo:
@@ -180,6 +180,7 @@ class Worker(WorkerHelper):
         local_world_size = int(os.getenv("LOCAL_WORLD_SIZE", "1"))
         local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
+        # ATTN 这里配置os中的环境变量
         store = {
             "_world_size": world_size,
             "_rank": rank,
@@ -203,7 +204,8 @@ class Worker(WorkerHelper):
             if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa" and os.getenv('MUSA_PATCH_PATH','') != '':
                 musa_patch_path = os.getenv('MUSA_PATCH_PATH','')
                 sys.path.append(musa_patch_path)
-                import musa_patch    
+                import musa_patch
+                print(f"musa_patch_path: {musa_patch_path}")
                 print('\n import musa patch success!\n')
             else:
                 print('\n skip musa patch \n')
@@ -239,12 +241,15 @@ class Worker(WorkerHelper):
         is_ray_noset_visible_devices = ray_noset_visible_devices()
 
         # Prevent use of clashing `{CUDA/HIP/ROCR}_VISIBLE_DEVICES``
-        rocr_val = os.environ.get("ROCR_VISIBLE_DEVICES", None)
-        hip_val = os.environ.get("HIP_VISIBLE_DEVICES", None)
+        rocr_val = os.environ.get("ROCR_VISIBLE_DEVICES", None) # None
+        hip_val = os.environ.get("HIP_VISIBLE_DEVICES", None) # None
         cuda_val = os.environ.get("CUDA_VISIBLE_DEVICES", None)
-        if cuda_val is None:
-            cuda_val = os.environ.get("MUSA_VISIBLE_DEVICES", None)
-        logger.warning(f"cuda_val={cuda_val}")
+        # if cuda_val is None:
+        #     cuda_val = os.environ.get("MUSA_VISIBLE_DEVICES", None)
+        tmp_cuda_device = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+        # cuda_val = os.environ.get("MUSA_VISIBLE_DEVICES", None) # ATTN 直接使用CUDA_VISIBLE_DEVICES
+        logger.warning(f"cuda_val={cuda_val}, CUDA_VISIBLE_DEVICES={tmp_cuda_device}")
+        logger.warning(f"rocr_val: {rocr_val}, hip_val: {hip_val}, is_ray_noset_visible_devices: {is_ray_noset_visible_devices}") # DEBUG
         if hip_val:
             # Switch the use of HIP_VISIBLE_DEVICES to CUDA_VISIBLE_DEVICES for consistency.
             # Make sure that the HIP_VISIBLE_DEVICES is set to the same value as CUDA_VISIBLE_DEVICES
@@ -278,7 +283,8 @@ class Worker(WorkerHelper):
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda_val
             rocr_val = None
 
-        if True: #is_ray_noset_visible_devices:
+        # if is_ray_noset_visible_devices:
+        if True: #is_ray_noset_visible_devices: 强制手动设置
             # NOTE: Ray will automatically set the *_VISIBLE_DEVICES
             # environment variable for each actor, unless
             # RAY_EXPERIMENTAL_NOSET_*_VISIBLE_DEVICES is set,
@@ -287,6 +293,9 @@ class Worker(WorkerHelper):
             local_rank = ray.get_runtime_context().get_accelerator_ids()[device_name][0]
             os.environ["LOCAL_RANK"] = local_rank
             get_torch_device().set_device(int(local_rank))
+            logger.warning(f"LOCAL_RANK: {local_rank} set device") # DEBUG
+
+        logger.warning(f"MUSA_VISIBLE_DEVICES after Ray setup: {os.environ.get('MUSA_VISIBLE_DEVICES')}")
 
     def _configure_with_store(self, store: dict):
         """

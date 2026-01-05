@@ -392,8 +392,8 @@ class FSDPSFTTrainer:
                 shift_labels = shift_labels.view(-1)
                 # Enable model parallelism
                 shift_labels = shift_labels.to(shift_logits.device)
-                # loss = loss_fct(shift_logits, shift_labels)
-                loss = loss_fct(shift_logits.cpu(), shift_labels.cpu()).to(shift_logits.device)
+                loss = loss_fct(shift_logits, shift_labels)
+                # loss = loss_fct(shift_logits.cpu(), shift_labels.cpu()).to(shift_logits.device)
                 loss = loss * loss_mask.to(loss.device)
             else:
                 # IMPORTANT: We have a big assumption here, so we can shard the SAME sequence across SP ranks
@@ -436,8 +436,8 @@ class FSDPSFTTrainer:
                 # Compute loss locally then aggregate
                 logits_rmpad = output.logits.squeeze(0)
                 input_ids_rmpad_rolled = input_ids_rmpad_rolled.to(logits_rmpad.device)
-                # loss = loss_fct(logits_rmpad, input_ids_rmpad_rolled)
-                loss = loss_fct(logits_rmpad.cpu(), input_ids_rmpad_rolled.cpu()).to(input_ids_rmpad_rolled.device)
+                loss = loss_fct(logits_rmpad, input_ids_rmpad_rolled)
+                # loss = loss_fct(logits_rmpad.cpu(), input_ids_rmpad_rolled.cpu()).to(input_ids_rmpad_rolled.device)
                 # Gather and unpad for sequence parallelism
                 loss = gather_outputs_and_unpad(loss, gather_dim=0, unpad_dim=0, padding_size=pad_size)
 

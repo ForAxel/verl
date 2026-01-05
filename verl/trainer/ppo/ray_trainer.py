@@ -63,7 +63,6 @@ from verl.utils.tracking import ValidationGenerationsLogger
 
 import os, logging
 logger = logging.getLogger(__file__)
-logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 @dataclass
 class ResourcePoolManager:
@@ -71,7 +70,8 @@ class ResourcePoolManager:
     Define a resource pool specification. Resource pool will be initialized first.
     """
 
-    resource_pool_spec: dict[str, list[int]]
+     # {"global_pool": [config.trainer.n_gpus_per_node] * config.trainer.nnodes}
+    resource_pool_spec: dict[str, list[int]] # {"global_pool": [2]}
     mapping: dict[Role, str]
     resource_pool_dict: dict[str, RayResourcePool] = field(default_factory=dict)
 
@@ -90,8 +90,9 @@ class ResourcePoolManager:
             # that can utilize different WorkerGroup for differnt models
             resource_pool = RayResourcePool(
                 process_on_nodes=process_on_nodes, use_gpu=True, max_colocate_count=1, name_prefix=resource_pool_name
+                # process_on_nodes=process_on_nodes, use_gpu=True, max_colocate_count=2, name_prefix=resource_pool_name
             )
-            self.resource_pool_dict[resource_pool_name] = resource_pool
+            self.resource_pool_dict[resource_pool_name] = resource_pool # {"global_pool": RayResourcePool obj}
 
         self._check_resource_available()
 
@@ -106,7 +107,7 @@ class ResourcePoolManager:
     def _check_resource_available(self):
         """Check if the resource pool can be satisfied in this ray cluster."""
         node_available_resources = ray._private.state.available_resources_per_node()
-        print('check available resources', node_available_resources)
+        logger.warning('check available resources', node_available_resources)
         node_available_gpus = {
             # node: node_info.get("GPU", 0) if "GPU" in node_info else node_info.get("NPU", 0)
             node: node_info.get("GPU", 8) if "GPU" in node_info else node_info.get("NPU", 8)
@@ -331,6 +332,7 @@ class RayPPOTrainer:
         self.use_critic = need_critic(self.config)
         self.ray_worker_group_cls = ray_worker_group_cls
         self.device_name = device_name if device_name else self.config.trainer.device
+        logger.warning(f"RayPPOTrainer device_name: {self.device_name}") # DEBUG musa
         self.validation_generations_logger = ValidationGenerationsLogger(
             project_name=self.config.trainer.project_name,
             experiment_name=self.config.trainer.experiment_name,
@@ -680,16 +682,25 @@ class RayPPOTrainer:
         1. Ray resource pools from configuration
         2. Worker groups for each role (actor, critic, etc.)
         """
+        logger.warning(f'RayPPOTrainer START init_workers cur device: {torch.musa.current_device()}') # DEBUG
+        # 1. 为每个角色（例如 actor_rollout、critic、ref）指定用哪个类初始化 worker，并且说明在哪个资源池里分配它们
         self.resource_pool_manager.create_resource_pool()
 
         self.resource_pool_to_cls = {pool: {} for pool in self.resource_pool_manager.resource_pool_dict.values()}
+        # {verl.single_controller.ray.base.RayResourcePool: {}}
 
+        logger.warning(f"self.hybrid_engine: {self.hybrid_engine}, \
+              self.use_critic:{self.use_critic}, \
+                self.use_reference_policy:{self.use_reference_policy}\
+                    self.use_rm: {self.use_rm}")
+
+        # 为资源池中每个角色指定对应的类
         # create actor and rollout
-        if self.hybrid_engine:
+        if self.hybrid_engine: # True
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.ActorRollout)
             actor_rollout_cls = RayClassWithInitArgs(
                 cls=self.role_worker_mapping[Role.ActorRollout],
-                config=self.config.actor_rollout_ref,
+                config=self.config.actor_rollout_ref, # 获取对应的config
                 role=str(Role.ActorRollout),
             )
             self.resource_pool_to_cls[resource_pool][str(Role.ActorRollout)] = actor_rollout_cls
@@ -704,7 +715,7 @@ class RayPPOTrainer:
             self.resource_pool_to_cls[resource_pool][str(Role.Critic)] = critic_cls
 
         # create reference policy if needed
-        if self.use_reference_policy:
+        if self.use_reference_policy: # True
             resource_pool = self.resource_pool_manager.get_resource_pool(Role.RefPolicy)
             ref_policy_cls = RayClassWithInitArgs(
                 self.role_worker_mapping[Role.RefPolicy],
@@ -725,7 +736,7 @@ class RayPPOTrainer:
         # you should not use `create_colocated_worker_cls`.
         # Instead, directly pass different resource pool to different worker groups.
         # See https://github.com/volcengine/verl/blob/master/examples/ray/tutorial.ipynb for more information.
-        all_wg = {}
+        all_wg = {} # 角色名称： RayWorkerGroup类实例
         wg_kwargs = {}  # Setting up kwargs for RayWorkerGroup
         if OmegaConf.select(self.config.trainer, "ray_wait_register_center_timeout") is not None:
             wg_kwargs["ray_wait_register_center_timeout"] = self.config.trainer.ray_wait_register_center_timeout
@@ -742,33 +753,37 @@ class RayPPOTrainer:
                 )
         wg_kwargs["device_name"] = self.device_name
 
+        # self.resource_pool_to_cls:
+        # {verl.single_controller.ray.base.RayResourcePool: {
+        #   'actor_rollout' : verl.single_controller.ray.base.RayClassWithInitArgs object, 
+        #   'ref'           : verl.single_controller.ray.base.RayClassWithInitArgs object}
+        # }
+
+        # 2. 批量创建多个Worker实例并统一管理，赋予对应职责
         for resource_pool, class_dict in self.resource_pool_to_cls.items():
-            print(f'init_workers class dict {class_dict.keys()}') # DEBUG
-            worker_dict_cls = create_colocated_worker_cls(class_dict=class_dict)
+            logger.warning(f'RayPPOTrainer resource_pool is: {resource_pool}') # DEBUG verl.single_controller.ray.base.RayResourcePool
+            logger.warning(f'RayPPOTrainer init_workers class dict {class_dict.keys()}') # DEBUG
+            worker_dict_cls = create_colocated_worker_cls(class_dict=class_dict) # verl.single_controller.ray.base.RayClassWithInitArgs
             logger.warning("create_colocated_worker_cls success") # DEBUG
+            # ATTN 这里基于 ray_worker_group_cls（ RayWorkerGroup ）类已经进行了实例化
             wg_dict = self.ray_worker_group_cls(
-                resource_pool=resource_pool,
-                ray_cls_with_init=worker_dict_cls,
+                resource_pool=resource_pool, # verl.single_controller.ray.base.RayResourcePool
+                ray_cls_with_init=worker_dict_cls, # verl.single_controller.ray.base.RayClassWithInitArgs
                 **wg_kwargs,
-            )
+            ) # RayWorkerGroup 指定资源池，规定角色和对应类
             spawn_wg = wg_dict.spawn(prefix_set=class_dict.keys())
             all_wg.update(spawn_wg)
+        
+        # DEBUG 上面已经进行了类的实例化
 
+        # 3. 调用 init_model() 完成各个模型加载
         if self.use_critic:
             self.critic_wg = all_wg[str(Role.Critic)]
             self.critic_wg.init_model()
 
-        # TODO ATTN 这里卡住
         if self.use_reference_policy and not self.ref_in_actor:
-            logger.warning(f'before ref init {torch.musa.current_device()}') # DEBUG
             self.ref_policy_wg = all_wg[str(Role.RefPolicy)]
-            logger.warning("self.ref_policy_wg try to init model") # DEBUG
-            logger.warning(f"str(Role.RefPolicy) is: {str(Role.RefPolicy)}") # RayWorkerGroup
-            logger.warning(f"all_wg keys: {all_wg.keys()}") # DEBUG
-            logger.warning(f"self.ref_policy_wg is: {self.ref_policy_wg}") # DEBUG
-            logger.warning(f"self.ref_policy_wg.init_model is: {self.ref_policy_wg.init_model}") # DEBUG
             self.ref_policy_wg.init_model()
-            # assert 1==2 # ATTN DEBUG 只有在分布式的情况下才会有问题
         
         self.rm_wg = None
         # initalization of rm_wg will be deprecated in the future
@@ -778,10 +793,9 @@ class RayPPOTrainer:
 
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_wg = all_wg[str(Role.ActorRollout)]
-        logger.warning(f'before actor init {torch.musa.current_device()}') # DEBUG
-        self.actor_rollout_wg.init_model()
-
-        
+        logger.warning(f'RayPPOTrainer before actor init {torch.musa.current_device()}') # DEBUG
+        self.actor_rollout_wg.init_model() # ATTN 这里调用ActorRolloutRefWorker类的init_model，进一步调用 _build_rollout 初始化SGLangRollout类
+        logger.warning(f'RayPPOTrainer FINISH actor init {torch.musa.current_device()}') # DEBUG
 
         # create async rollout manager and request scheduler
         self.async_rollout_mode = False
@@ -792,7 +806,6 @@ class RayPPOTrainer:
             self.async_rollout_manager = AgentLoopManager(
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
-        # assert 1==2 # DEBUG
 
     def _save_checkpoint(self):
         from verl.utils.fs import local_mkdir_safe
@@ -855,6 +868,15 @@ class RayPPOTrainer:
             f.write(str(self.global_steps))
 
     def _load_checkpoint(self):
+        """不同 WorkGroup 实例加载 checkpoint
+        加载 dataloader
+
+        Raises:
+            NotImplementedError: _description_
+
+        Returns:
+            _type_: _description_
+        """        
         if self.config.trainer.resume_mode == "disable":
             # NOTE: while there is no checkpoint to load, we still need to offload the model and optimizer to CPU
             self.actor_rollout_wg.load_checkpoint(None)
@@ -874,6 +896,7 @@ class RayPPOTrainer:
         if self.config.trainer.resume_mode == "auto":
             if global_step_folder is None:
                 print("Training from scratch")
+                print(f"self.actor_rollout_wg is: {self.actor_rollout_wg}") # DEBUG
                 self.actor_rollout_wg.load_checkpoint(None)
                 return 0
         else:
@@ -1057,7 +1080,7 @@ class RayPPOTrainer:
 
         # perform validation before training
         # currently, we only support validation using the reward_function.
-        if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
+        if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True): # val_before_train is False
             val_metrics = self._validate()
             assert val_metrics, f"{val_metrics=}"
             pprint(f"Initial validation metrics: {val_metrics}")
@@ -1098,15 +1121,17 @@ class RayPPOTrainer:
                     )
                 batch: DataProto = DataProto.from_single_dict(batch_dict)
 
+                # print(f"RayPPOTrainer fit Raw batch is: {batch}") # ATTN 这里数据就已经被tokenizer处理了
+
                 # add uid to batch
                 batch.non_tensor_batch["uid"] = np.array(
                     [str(uuid.uuid4()) for _ in range(len(batch.batch))], dtype=object
                 )
 
-                gen_batch = self._get_gen_batch(batch)
+                gen_batch = self._get_gen_batch(batch) # DataProto
 
                 # pass global_steps to trace
-                gen_batch.meta_info["global_steps"] = self.global_steps
+                gen_batch.meta_info["global_steps"] = self.global_steps # 1
                 gen_batch_output = gen_batch.repeat(
                     repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True
                 )
@@ -1120,6 +1145,9 @@ class RayPPOTrainer:
                             # DEBUG 在这里卡住
                             print(f"RayPPOTrainer fit self.actor_rollout_wg is: {self.actor_rollout_wg}")
                             print(f"gen_batch_output type: {type(gen_batch_output)}, length: {len(gen_batch_output)}")
+                            # print(f"gen_batch_output.batch: {gen_batch_output.batch}")
+                            # 调用 ActorRolloutRefWorker 类的 generate_sequences 函数 
+                            # ray::WorkerDict.actor_rollout_generate_sequences 进程 ?
                             gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch_output)
                             print(f"self.actor_rollout_wg.generate_sequences finish!")
                         else:

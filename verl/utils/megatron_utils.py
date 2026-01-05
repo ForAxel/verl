@@ -41,6 +41,10 @@ from verl.utils.fs import local_mkdir_safe
 from verl.utils.model import normalize_model_name
 from verl.utils.torch_dtypes import PrecisionType
 
+import logging
+logger = logging.getLogger(__file__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
 
 def get_model_config(model):
     return get_attr_wrapped_model(model, "config", allow_none=False)
@@ -825,8 +829,27 @@ def per_tensor_generator(
     layer_name_mapping,
     convert_qkv_gate_up_by_simple_split=True,
 ):
-    from megatron.core import parallel_state as mpu
+    """模型权重转换与合并生成器
+    将多个GPU上Megatron格式模型参数收集、合并、转化为其他框架所需格式
 
+    Args:
+        actor_module (_type_): 需要转换权重的Megatron模型
+        model_config (_type_): _description_
+        weight_converter (_type_): 参数转换器，将合并后的参数转换到目标格式
+        transformer_config (_type_): _description_
+        layer_name_mapping (_type_): _description_
+        convert_qkv_gate_up_by_simple_split (bool, optional): _description_. Defaults to True.
+
+    Yields:
+        _type_: _description_
+    """    
+    from megatron.core import parallel_state as mpu
+    
+    dp_rank = mpu.get_data_parallel_rank() # DEBUG
+    tp_rank = mpu.get_tensor_model_parallel_rank() # DEBUG
+
+    logger.warning(f"per_tensor_generator, dp_rank: {dp_rank}, tp_rank: {tp_rank} ")
+    
     pp_rank = mpu.get_pipeline_model_parallel_rank()
     ep_size = mpu.get_expert_model_parallel_world_size()
     etp_size = mpu.get_expert_tensor_parallel_world_size()
@@ -935,13 +958,24 @@ def per_tensor_generator(
                 yield from zip(converted_names, [param.detach() for param in converted_params], strict=True)
             continue
 
+
+        # logger.warning(f"per_tensor_generator, tp_rank={tp_rank}, cur_name is: {cur_name}, tp_utils.is_tensor_parallel_param(broad_pp_tensor)={tp_utils.is_tensor_parallel_param(broad_pp_tensor)}")
         # tp all gather
         if tp_utils.is_tensor_parallel_param(broad_pp_tensor):
+            # logger.warning(f"per_tensor_generator, tp_rank={tp_rank}, cur_name is: {cur_name}, all_gather_group_size: {all_gather_group_size}")
             # allocate a new tensor with proper size
             if all_gather_group_size <= 1:
                 infer_params = [broad_pp_tensor]
             else:
                 infer_params = [torch.empty_like(broad_pp_tensor) for _ in range(all_gather_group_size)]
+                
+                # # DEBUG
+                # logger.warning(f"per_tensor_generator cur_name is: {cur_name}")
+                # logger.warning(f"per_tensor_generator all_gather_group_size is: {all_gather_group_size}")
+                # for tmp_tensor in infer_params:
+                #     logger.warning(f"per_tensor_generator tmp_tensor shape: {tmp_tensor.shape}, device: {tmp_tensor.device}")
+                # logger.warning(f"per_tensor_generator broad_pp_tensor shape: {broad_pp_tensor.shape}, device: {broad_pp_tensor.device}")
+                # logger.warning(f"per_tensor_generator group is: {mpu.get_tensor_model_parallel_group()}")
                 torch.distributed.all_gather(infer_params, broad_pp_tensor, group=mpu.get_tensor_model_parallel_group())
             infer_params = default_tp_concat_fn(
                 layer_name_mapping,

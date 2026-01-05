@@ -132,3 +132,11 @@ outputs
 demo_*
 config_example
 backup_shells
+compare_log
+*xputimer*
+main_ppo_config
+*.diff
+*.mudmp
+NV_rl_post_training
+
+tmp_data

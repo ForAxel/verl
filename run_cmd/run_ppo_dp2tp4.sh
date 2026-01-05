@@ -7,12 +7,9 @@ set -x
 HF_MODEL_PATH='/home/dist/zhaoping/LLMs/Qwen3-1.7B'
 DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
-export CUDA_DEVICE_MAX_CONNECTIONS=1 # For megatron communication/computation overlapping
-export OMP_NUM_THREADS=4
-# export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
-export MUSA_VISIBLE_DEVICES='0'
-export MUSA_EXECUTION_TIMEOUT=3200000
-# export MUSA_KERNEL_TIMEOUT=3200000
+# export MUSA_VISIBLE_DEVICES='0,1'
+export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
+# export MUSA_EXECUTION_TIMEOUT=30000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
@@ -25,12 +22,11 @@ export MCCL_CHECK_POINTERS=0
 
 # export ACCELERATE_USE_FSDP=1
 # export FSDP_CPU_RAM_EFFICIENT_LOADING=1
-export VERL_LOGGING_LEVEL=WARNING #INFO
+export VERL_LOGGING_LEVEL=INFO #INFO
 export HYDRA_FULL_ERROR=1
 #export MUSA_USERQ=1
 
 # export MUSA_PATCH_PATH=/home/dist/zhaoping/Code/verl-musa-patch
-
 export MEGATRON_PATH=/home/dist/zhaoping/Code/musa_patch/Megatron-LM
 export VERL_PATH=/home/dist/zhaoping/Code/verl-musa-patch/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
@@ -44,40 +40,25 @@ test_files=$DATASET_PATH/math_test.parquet
 CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
 
 
-# ======= DEBUG ======
-# 增加NCCL超时设置
-export MCCL_BLOCKING_WAIT=1
-export MCCL_ASYNC_ERROR_HANDLING=1
-# 调整网络绑定
-export GLOO_SOCKET_IFNAME=bond0
-# 减少通信量
-export MCCL_MAX_NCHANNELS=1  # 确保已设置
-
-# 减少Ray工作进程数
-export RAY_task_retry_delay_ms=5000
-export RAY_max_task_retries=3
-export RAY_num_cpus=32  # 根据实际CPU核心数调整
-# 禁用Python的子进程fork
-export PYTHON_DISABLE_FORK=1
-
-# 改成单batch看下效果  data.train_batch_size=1 actor_rollout_ref.actor.ppo_mini_batch_size=1
-# ======
+# # 解决保存问题
+# export CUDA_LAUNCH_BLOCKING=1
+# export TORCH_SAFE_SERIALIZATION=1
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.33.9:65379" \
-python3 -m verl.trainer.main_ppo \
+    RAY_ADDRESS="10.18.32.9:65379" \
+python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=2 \
+    data.train_batch_size=8 \
     data.max_prompt_length=256 \
-    data.max_response_length=32 \
+    data.max_response_length=16 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
@@ -86,7 +67,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.ppo_mini_batch_size=2 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -95,7 +76,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=4 \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
     actor_rollout_ref.rollout.n=2 \
@@ -107,7 +88,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
+    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.ref.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -116,10 +97,10 @@ python3 -m verl.trainer.main_ppo \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
     trainer.experiment_name='Qwen3_1.7b_megatron_sglang' \
-    trainer.n_gpus_per_node=1 \
+    trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-| tee ../logs/run_ppo_demo_backupShell.log 2>&1
+    2>&1 | tee ../logs/run_ppo_dp2tp4.log

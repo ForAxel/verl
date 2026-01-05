@@ -41,7 +41,7 @@ class ResourcePool:
         """
         if process_on_nodes is None:
             process_on_nodes = []
-        self._store = process_on_nodes
+        self._store = process_on_nodes # node上总的进程数目
         self.max_colocate_count = max_colocate_count
         self.n_gpus_per_node = n_gpus_per_node  # this is left for future huawei GPU that contains 16 GPUs per node
 

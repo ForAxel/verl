@@ -17,7 +17,7 @@ The main entry point to run the PPO algorithm
 
 import datetime
 import logging
-import os
+import os, pickle
 import time
 from typing import Any, Optional
 
@@ -32,7 +32,7 @@ try:
 except ImportError:
     repatch = None
 
-from megatron.core import parallel_state as mpu
+from megatron.core import parallel_state as mpu # 从Megatron框架引入
 
 from verl import DataProto
 from verl.models.mcore import get_mcore_weight_converter
@@ -168,7 +168,6 @@ class MegatronWorker(Worker):
             tf_config = hf_to_mcore_config(hf_config, dtype, **override_transformer_config)
             self.bridge = None
 
-        print(f"megatron_workers.py TF config: {tf_config}")
         self.hf_config = hf_config
         self.tf_config = tf_config
 
@@ -181,7 +180,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
     def __init__(self, config: DictConfig, role: str, **kwargs):
         Worker.__init__(self)
-        self.config = config
+        self.config = config # 这里的config在 RayPPOTrainer 类中的 init_workers 函数中，通过包装为对应的 RayClassWithInitArgs来对应上了
         if repatch is not None:
             # NPU MindSpeed patch, will be refactored with MindSpeedEngine.
             repatch(self.config.actor.megatron.get("override_transformer_config", {}))
@@ -219,20 +218,22 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             mpu.get_tensor_model_parallel_rank() == 0
             and mpu.get_pipeline_model_parallel_rank() == mpu.get_pipeline_model_parallel_world_size() - 1
             and mpu.get_context_parallel_rank() == 0
-        )
+        ) # rank0 is True other False
         self._register_dispatch_collect_info(
             mesh_name="actor", dp_rank=mpu.get_data_parallel_rank(), is_collect=is_collect
         )
 
         set_random_seed(seed=self.config.actor.megatron.seed)
 
-        self.role = role
+        self.role = role # actor_rollout
+
         assert self.role in ["actor", "rollout", "ref", "actor_rollout", "actor_rollout_ref"]
 
         self._is_actor = self.role in ["actor", "actor_rollout", "actor_rollout_ref"]
         self._is_rollout = self.role in ["rollout", "actor_rollout", "actor_rollout_ref"]
         self._is_ref = self.role in ["ref", "actor_rollout_ref"]
 
+        # 每个角色获取对应性能分析配置
         if self._is_actor:
             omega_profiler_config = config.actor.get("profiler", {})
         elif self._is_rollout:
@@ -255,6 +256,8 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             )
         else:
             tool_config = None
+
+        # 初始化分布式性能分析器
         DistProfilerExtension.__init__(
             self, DistProfiler(rank=self.rank, config=profiler_config, tool_config=tool_config)
         )
@@ -292,6 +295,20 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
     def _build_model_optimizer(
         self, model_path, optim_config, override_model_config, override_transformer_config, override_ddp_config=None
     ):
+        """ 初始化 hf 配置，获取 Generation 配置
+        加载模型
+        根据配置选择策略，将模型封装到分布式训练框架，支持参数分片和混合精度训练
+
+        Args:
+            model_path (_type_): _description_
+            optim_config (_type_): _description_
+            override_model_config (_type_): _description_
+            override_transformer_config (_type_): _description_
+            override_ddp_config (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
         from verl.utils.megatron.optimizer import (
             get_megatron_optimizer,
             get_megatron_optimizer_param_scheduler,
@@ -325,7 +342,9 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 bridge=self.bridge,
                 override_model_config=override_model_config,
                 override_ddp_config=override_ddp_config,
-            )
+            ) # Megatron 模型参数放置在 GPU 上了
+            # TODO 可以查看此时的显存占用
+            # torch.memory_allocated()
             print(f"actor_module: {len(actor_module)}")
             if self.config.actor.load_weight:
                 if self.config.actor.megatron.use_dist_checkpointing:
@@ -366,7 +385,15 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                     load_mcore_dist_weights(
                         ref_module, self.config.ref.megatron.dist_checkpointing_path, is_value_model=False
                     )
-                else:
+                    # DEBUG 这里保存到本地文件查看后，不存在nan值
+                    # logger.warning(f"ref_module class: {type(ref_module)}")
+                    # for i,val in enumerate(ref_module):
+                    #     logger.warning(f"{i}-th ele, type: {type(val)}")
+                    # save_path = f"/home/dist/zhaoping/Code/verl-musa-patch/verl/tmp_data/pid{os.getpid()}_ref_module.pkl"
+                    # with open(save_path, "wb") as f:
+                    #     model_state_dict = ref_module[0].state_dict()
+                    #     pickle.dump(model_state_dict, f)
+                else: # 不使用checkpoint的方式
                     if self.bridge is not None:
                         print("use_dist_checkpointing==False, bridge is not None")
                         local_model_path = get_hf_model_path(self.config)
@@ -378,6 +405,15 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                         )
                 logger.warning(f"load ref weight end!") # DEBUG
             log_gpu_memory_usage("After ref module init", logger=logger)
+            # # DEBUG 检查数据, 没有发现有nan值
+            # for weight_name, weight_tensor in ref_module[0].state_dict().items():
+            #     if weight_tensor==None:
+            #         logger.warning(f"_build_model_optimizer {weight_name} is None")
+            #         continue
+            #     if torch.any(torch.isnan(weight_tensor)):
+            #         isnan_num = torch.isnan(weight_tensor).sum()
+            #         inum = torch.numel(weight_tensor)
+            #         logger.warning(f"_build_model_optimizer {weight_name} shape: {weight_tensor.shape}, has nan value, nan num: {isnan_num}, ratio: {isnan_num/inum}")
             return ref_module, self.hf_config
 
         # TODO: add more optimizer args into config
@@ -394,16 +430,22 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         log_gpu_memory_usage("After actor optimizer init", logger=logger)
 
-        print(f"_build_model_optimizer finish") # DEBUG
+        logger.info(f"_build_model_optimizer finish") # DEBUG
         return actor_module, actor_optimizer, actor_optimizer_scheduler, self.hf_config, optim_config
 
     def _build_rollout(self, trust_remote_code=False):
+        """引入推理框架
+
+        Args:
+            trust_remote_code (bool, optional): _description_. Defaults to False.
+        """        
         from torch.distributed.device_mesh import init_device_mesh
 
         # 1. parse rollout and huggingface model config
-        rollout_config: RolloutConfig = omega_conf_to_dataclass(self.config.rollout)
+        rollout_config: RolloutConfig = omega_conf_to_dataclass(self.config.rollout) # ATTN 从config中获取rollout推理相关的配置
         model_config: HFModelConfig = omega_conf_to_dataclass(self.config.model, dataclass_type=HFModelConfig)
 
+        # 创建张量并行网格
         # 2. build rollout device mesh
         infer_tp = self.config.rollout.tensor_model_parallel_size * self.config.rollout.data_parallel_size
         infer_pp = self.config.rollout.pipeline_model_parallel_size
@@ -431,11 +473,17 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         self.gen_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.torch_random_states)
 
+        # DEBUG
+        dp_rank = rollout_device_mesh["dp"].get_local_rank()
+        infer_tp_rank = rollout_device_mesh["infer_tp"].get_local_rank()
+        infer_pp_rank = rollout_device_mesh["infer_pp"].get_local_rank()
+        logger.warning(f"_build_rollout dp_rank: {dp_rank}, infer_tp_rank: {infer_tp_rank}, infer_pp_rank: {infer_pp_rank}")
+
         # 4. build rollout model
         log_gpu_memory_usage(f"Before building {self.config.rollout.name} rollout", logger=logger)
         self.rollout = get_rollout_class(rollout_config.name, rollout_config.mode)(
             config=rollout_config, model_config=model_config, device_mesh=rollout_device_mesh
-        )
+        ) # ATTN 这里映射到对应的推理框架类 sglang, sync 调用 SGLangRollout 类的初始化操作
         log_gpu_memory_usage(f"After building {self.config.rollout.name} rollout", logger=logger)
 
         # 5. switch to trainer mode
@@ -498,6 +546,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         if self._is_actor:
             actor_cfg = omega_conf_to_dataclass(self.config.actor)
+            # 创建actor属性，实例化一个 MegatronPPOActor 类
             self.actor = MegatronPPOActor(
                 config=actor_cfg,
                 model_config=self.actor_model_config,
@@ -569,13 +618,16 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
     async def rollout_mode(self):
         """Context switch hybridengine to rollout mode."""
+
         aggressive_empty_cache(force_sync=True)
 
-        if self._is_offload_param:
+        if self._is_offload_param: # False
             load_megatron_model_to_gpu(self.actor.actor_module, load_grad=False)
             log_gpu_memory_usage("After load actor params during rollout_mode", logger=logger)
 
-        if self.bridge is not None:
+        logger.warning(f"self._is_offload_param: {self._is_offload_param}, self.bridge: {self.bridge}") # DEBUG
+
+        if self.bridge is not None: # None
             per_tensor_param = self.bridge.export_weights(self.actor.actor_module)
         else:
             per_tensor_param = per_tensor_generator(
@@ -590,7 +642,9 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         if self.config.rollout.free_cache_engine:
             await self.rollout.resume(tags=["weights"])
-        await self.rollout.update_weights(per_tensor_param)
+
+        # logger.warning(f"Rank: {self.rank}, per_tensor_param is: {per_tensor_param}") # DEBUG
+        await self.rollout.update_weights(per_tensor_param) # ATTN 多卡运行时在这里阻塞.
         if self._is_offload_param:
             offload_megatron_model_to_cpu(self.actor.actor_module)
         aggressive_empty_cache(force_sync=True)
@@ -670,7 +724,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="rollout"))
     @GPUMemoryLogger(role="generate_sequences", logger=logger)
     @DistProfiler.annotate(color="red")
-    def generate_sequences(self, prompts: DataProto):
+    def generate_sequences(self, prompts: DataProto): # ATTN worker 完整 rollout 过程        
         assert self._is_rollout
         prompts = prompts.to(get_device_name())
         meta_info = {
@@ -682,16 +736,25 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             else self.tokenizer.pad_token_id,
         }
         prompts.meta_info.update(meta_info)
+        #  prompts.meta_info {'global_steps': 1, 'eos_token_id': [151645, 151643], 'pad_token_id': 151643}
+
         if self._is_offload_optimizer:
             offload_megatron_optimizer(self.actor_optimizer)
 
         timing_generate = {}
         if self._is_actor:  # For rollout only, we do not switch context.
             loop = get_event_loop()
-            loop.run_until_complete(self.rollout_mode())
+            logger.warning(f"ActorRolloutRefWorker generate_sequences FUNC loop is: {loop}")
+            logger.warning(f"Rank: {self.rank}, START Switch to rollout mode...")
+            loop.run_until_complete(self.rollout_mode()) # 阻塞调用，等待 self.rollout_mode() 完成,在这里卡住了
+            logger.warning(f"Rank: {self.rank}, FINISH Switch to rollout mode...")
+            # assert 1==2 
             log_gpu_memory_usage("After switch to rollout mode", logger=logger)
+            
+            print(f"Rank: {self.rank}, FINISH loop {loop}")
 
         with simple_timer("generate_sequences", timing_generate):
+            # 调用 SGLangRollout 类的 generate_sequences 方法
             output = self.rollout.generate_sequences(prompts=prompts)
 
         if self._is_actor:
