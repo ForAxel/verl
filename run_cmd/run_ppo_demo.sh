@@ -6,6 +6,8 @@ set -x
 # 直接使用下载的模型参数和mcore参数
 HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B'
 DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B-mcore'
+# HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-8B'
+# DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-Base-mcore'
 
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 # export MUSA_VISIBLE_DEVICES='7'
@@ -13,6 +15,7 @@ export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
+export LD_LIBRARY_PATH="/usr/local/musa/lib:$LD_LIBRARY_PATH"
 
 # export MCCL_IB_GID_INDEX=3
 # export MUSA_BLOCK_SCHEDULE_MODE=1

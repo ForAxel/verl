@@ -53,8 +53,8 @@ def main(config):
     Args:
         config_dict: Hydra configuration dictionary containing training parameters.
     """
-    print(f"config type: {type(config)}")
-    OmegaConf.save(config, "/home/dist/zhaoping/Code/verl-musa-patch/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
+    # print(f"config type: {type(config)}")
+    # OmegaConf.save(config, "./verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
     # assert 1==2
     run_ppo(config)
 
