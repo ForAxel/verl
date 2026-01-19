@@ -624,6 +624,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         if self._is_offload_param: # False
             load_megatron_model_to_gpu(self.actor.actor_module, load_grad=False)
             log_gpu_memory_usage("After load actor params during rollout_mode", logger=logger)
+            logger.warning(f"rollout_mode() offload megatron model to GPU success!")
 
         logger.warning(f"self._is_offload_param: {self._is_offload_param}, self.bridge: {self.bridge}") # DEBUG
 
@@ -647,6 +648,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         await self.rollout.update_weights(per_tensor_param) # ATTN 多卡运行时在这里阻塞.
         if self._is_offload_param:
             offload_megatron_model_to_cpu(self.actor.actor_module)
+            logger.warning(f"rollout_mode() offload megatron model to cpu success!")
         aggressive_empty_cache(force_sync=True)
         if self.config.rollout.free_cache_engine:
             await self.rollout.resume(tags=["kv_cache"])
@@ -756,10 +758,13 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         with simple_timer("generate_sequences", timing_generate):
             # 调用 SGLangRollout 类的 generate_sequences 方法
             output = self.rollout.generate_sequences(prompts=prompts)
+        
+        logger.warning(f"ActorRolloutRefWorker generate_sequences finish, Try to switch to trainer_mode")
 
         if self._is_actor:
             loop.run_until_complete(self.trainer_mode())
             log_gpu_memory_usage("After switch to trainer mode", logger=logger)
+            logger.warning(f"ActorRolloutRefWorker switch to trainer mode SUCCESS")
 
         # We calculate the average timing across all ranks
         # to make sure meta_info["timing"] is the same

@@ -17,6 +17,9 @@ from transformers import PretrainedConfig
 
 from verl.utils.device import get_torch_device
 
+import logging
+logger = logging.getLogger(__name__)
+
 VALID_CONFIG_TYPE = {
     "llama",
     "qwen2",
@@ -142,6 +145,7 @@ class FlopsCounter:
             "seed_oss": self._estimate_qwen2_flops,
             "apertus": self._estimate_apertus_flops,
             "glm4v": self._estimate_qwen2_flops,
+            "deepseek_v2": self._estimate_deepseek_v3_flops,
         }
         self.config = getattr(config, "text_config", config)
 
@@ -392,6 +396,7 @@ class FlopsCounter:
             promised_flops (float): The expected FLOPS of the current device.
         """
         tokens_sum = sum(batch_seqlens)
+        logger.warning(f"self.config.model_type is: {self.config.model_type}")
         func = self.estimate_func.get(self.config.model_type, self._estimate_unknown_flops)
         estimated_flops = func(tokens_sum, batch_seqlens, delta_time)
         promised_flops = get_device_flops()

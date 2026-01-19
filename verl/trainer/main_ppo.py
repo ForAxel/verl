@@ -54,7 +54,7 @@ def main(config):
         config_dict: Hydra configuration dictionary containing training parameters.
     """
     print(f"config type: {type(config)}")
-    OmegaConf.save(config, "/home/dist/zhaoping/Code/verl-musa-patch/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
+    OmegaConf.save(config, "/home/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
     # assert 1==2
     run_ppo(config)
 
@@ -365,6 +365,9 @@ class TaskRunner:
         from verl.utils import hf_processor, hf_tokenizer
 
         trust_remote_code = config.data.get("trust_remote_code", False)
+        # trust_remote_code = config.data.get("trust_remote_code", True) # 默认 trust_remote_code=True
+        # trust_remote_code = True
+        # logger.warning(f"TaskRunner run trust_remote_code: {trust_remote_code}") # DEBUG
         tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
         # Used for multimodal LLM, could be None
         processor = hf_processor(local_path, trust_remote_code=trust_remote_code, use_fast=True)

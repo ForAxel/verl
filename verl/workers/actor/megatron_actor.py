@@ -163,6 +163,7 @@ class MegatronPPOActor(BasePPOActor):
             print("[Warining] Because actor tp size == 1, set sp to False")
             config.megatron.sequence_parallel = False
         self.config = config
+        # logger.warning(f"MegatronPPOActor config is: {config}") # DEBUG
 
     @GPUMemoryLogger(role="megatron actor", logger=logger)
     def compute_log_prob(self, data: DataProto, calculate_entropy=False) -> torch.Tensor:
@@ -326,6 +327,7 @@ class MegatronPPOActor(BasePPOActor):
             data = data.select(select_keys, ["multi_modal_inputs"])
         else:
             data = data.select(batch_keys=select_keys)
+        # logger.warning(f"MegatronPPOActor self.config.ppo_mini_batch_size is: {self.config.ppo_mini_batch_size}")
         return data.make_iterator(
             mini_batch_size=self.config.ppo_mini_batch_size,
             epochs=self.config.ppo_epochs,

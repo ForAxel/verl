@@ -109,7 +109,7 @@ def get_tensor_parallel_partition_stride(param):
 class _VocabParallelEntropy(torch.autograd.Function):
     @staticmethod
     def forward(ctx, vocab_parallel_logits: torch.Tensor) -> torch.Tensor:
-        @torch.compile(dynamic=True)
+        # @torch.compile(dynamic=True)
         def mul_reduce(a, b):
             return (a * b).sum(dim=-1, keepdim=True)
 

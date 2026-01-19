@@ -486,8 +486,8 @@ class SGLangRollout(BaseRollout):
 
         # attention backend will be changed to fa3 if not specified
         attention_backend = engine_kwargs.pop("attention_backend", None)
-        # max_running_requests = self.config.get("max_num_seqs", None)
-        max_running_requests = 48 # ATTN 强制减少并行度
+        max_running_requests = self.config.get("max_num_seqs", None)
+        # max_running_requests = 48 # ATTN 强制减少并行度
 
         # DEBUG
         logger.warning(f"SGLangRollout engine_kwargs: {engine_kwargs}") # None
@@ -505,6 +505,7 @@ class SGLangRollout(BaseRollout):
         # backend = attention_backend if attention_backend is not None else "triton"
         # backend = None # ATTN 是否要替换backend？ 单卡的时候需要设置为 None，不然会报错
         backend = "triton"
+        # backend = "fa3" # DeepSeek 模型使用 fa3 
         logger.warning(f"SGLangRollout backend: {backend}") # DEBUG
 
         logger.warning(f"SGLangRollout effective_first: {effective_first}, is_server_mode: {is_server_mode}")
@@ -516,7 +517,7 @@ class SGLangRollout(BaseRollout):
                 "model_path": actor_module,
                 "dtype": self.config.dtype,
                 "mem_fraction_static": self.config.gpu_memory_utilization,
-                "enable_memory_saver": True, # 启动 torch-memory-saver
+                # "enable_memory_saver": True, # 启动 torch-memory-saver
                 "base_gpu_id": 0,
                 "gpu_id_step": 1,
                 "tp_size": self._tp_size,
@@ -548,11 +549,13 @@ class SGLangRollout(BaseRollout):
                 "dist_timeout": 1800,
             }
 
+            args["disable_overlap_schedule"] = True # ATTN 禁用 overlap
+
             args['base_gpu_id'] = int(os.environ.get('RANK',0)) # ATTN 修改RANK
             # if "DeepSeek" in actor_module:
-                # logger.warning(f"Model: {actor_module}, set enable_dp_attention=True")
-                # args['enable_dp_attention'] = True # 对MoE模型开注意力数据并行
-                # args['dtype'] = "bfloat16" # 上面已经设置了，这里相当于重复设置了一次
+            #     logger.warning(f"Model: {actor_module}, set enable_dp_attention=True")
+            #     args['enable_dp_attention'] = True # 对MoE模型开注意力数据并行
+            #     args['dtype'] = "bfloat16" # 上面已经设置了，这里相当于重复设置了一次
              
 
             logger.warning(f"SGLang Rollout engine args: {args}")
@@ -841,6 +844,7 @@ class SGLangRollout(BaseRollout):
         # logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
 
         if self._tp_rank == 0:
+            start_time = time.time()
             loop = asyncio.get_event_loop()
             logger.warning(f"SGLangRollout self._engine class is: {self._engine}") # DEBUG
             # verl.workers.rollout.sglang_rollout.sglang_rollout.AsyncEngine
@@ -864,9 +868,13 @@ class SGLangRollout(BaseRollout):
                     image_data=image_list,
                 )
             )
+            end_time = time.time()
+            run_time = end_time - start_time
+            logger.warning(f"TP_Rank: {self._tp_rank} generate sequence time: {run_time:.6f} s")
         else:
             logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
-            time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
+            time.sleep(300) # 测试pref
+            # time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
             output = None
 
 
