@@ -114,7 +114,8 @@ global_profiler:
   tool: null  # choose between nsys, npu, torch
   steps: null   # profile steps
   profile_continuous_steps: False
-  save_path: "outputs/profile"   # profiler saving path
+  # save_path: "outputs/profile"   # profiler saving path
+  save_path: "/home/verl_pref_output"
   # Specific tool configs, can use +profiler.tool_config.[tool].xxx to config
   global_tool_config:
   

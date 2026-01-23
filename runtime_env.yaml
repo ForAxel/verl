@@ -1,6 +1,8 @@
 working_dir: ./
 excludes: ["/.git/","/run_cmd/"]
 env_vars:
+  MUSA_LOG: "0x1" # 便于查看 MUSA API 报错
+  # ENABLE_PROFILER: "1"  # 使用musa_patch 中的profiler
   VLLM_PATCH_MUSA_CUSTOM_OPS: "1"
   # ====== MUSA log ======
   # MUSA_LOG: "0xf"
@@ -21,8 +23,8 @@ env_vars:
   # TORCH_CPP_LOG_LEVEL: "INFO"
   # MCCL_DEBUG: "INFO" # MCCL 调试信息输出
   # MCCL_P2P_DISABLE: "1" # 临时禁用点对点通信
-  MUSA_LAUNCH_BLOCKING: "0"
-  # MUSA_EXECUTION_TIMEOUT: "30000" # 单位：毫秒
+  MUSA_LAUNCH_BLOCKING: "0" # "0" 设置为 1 会影响性能
+  # MUSA_EXECUTION_TIMEOUT: "60000" # 单位：毫秒 60秒
   MUSA_EXECUTION_TIMEOUT: "3000000" # 单位：毫秒 3000秒
   # ==================
   # ====== 强制同步操作 ======
@@ -38,7 +40,7 @@ env_vars:
   # TORCH_NCCL_BLOCKING_WAIT: "1" # DEBUG
   TORCH_MCCL_BLOCKING_WAIT: "1" # DEBUG
   # NCCL_TIMEOUT: "600000"  # DEBUG 单位：毫秒（600000ms = 10分钟）
-  MCCL_TIMEOUT: "60000000"
+  MCCL_TIMEOUT: "6000000"
   RAY_BACKEND_LOG_LEVEL: "debug" # DEBUG
   RAY_OVERRIDE_JOB_RUNTIME_ENV: "1"
   MUSA_VISIBLE_DEVICES: "0,1,2,3,4,5,6,7"
@@ -49,8 +51,8 @@ env_vars:
   MCCL_CHECK_POINTERS: "0"
   VERL_LOGGING_LEVEL: "INFO"
   HYDRA_FULL_ERROR: "1"
-  MUSA_PATCH_PATH: "/home/verl-musa-patch"
-  #MUSA_PATCH_PATH: /home/megatron-lm-musa-patch
+  # MUSA_PATCH_PATH: "/home/verl-musa-patch"
+  MUSA_PATCH_PATH: /home/megatron-lm-musa-patch
   MEGATRON_PATH: "/home/Megatron-LM"
   VERL_PATH: "/home/verl"
   PYTHONPATH: "$MEGATRON_PATH:$VERL_PATH:$PYTHONPATH"

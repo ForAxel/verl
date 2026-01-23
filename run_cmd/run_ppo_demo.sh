@@ -41,12 +41,15 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # export CUDA_LAUNCH_BLOCKING=1
 # export TORCH_SAFE_SERIALIZATION=1
 
+export VLLM_PATCH_MUSA_CUSTOM_OPS=1
+
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
     RAY_ADDRESS="localhost:65379" \
+    VLLM_PATCH_MUSA_CUSTOM_OPS=1 \
 python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
@@ -98,7 +101,7 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.n_gpus_per_node=1 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
-    trainer.save_freq=2 \
-    trainer.test_freq=4 \
+    trainer.save_freq=100 \
+    trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
     2>&1 | tee ../logs/run_ppo_demo.log

@@ -42,15 +42,7 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # export TORCH_SAFE_SERIALIZATION=1
 
 export VLLM_PATCH_MUSA_CUSTOM_OPS=1
-
-batch_size=32
-use_dynamic_bsz=True
-max_prompt_length=512
-#max_response_length=32768
-max_response_length_=2048 
-actor_ppo_max_token_len=$(((max_prompt_length + max_response_length_) * 1))
-#actor_ppo_max_token_len=6000
-infer_ppo_max_token_len=$(((max_prompt_length + max_response_length_) * 4))
+export MUSA_LOG=0x1 # 查看 MUSA API报错
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
@@ -62,18 +54,12 @@ env PYTHONPATH="$PYTHONPATH" \
 python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
-    actor_rollout_ref.actor.use_dynamic_bsz=${use_dynamic_bsz} \
-    actor_rollout_ref.ref.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
-    actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
-    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${actor_ppo_max_token_len} \
-    actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
-    actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=${batch_size} \
-    data.max_prompt_length=${max_prompt_length} \
-    data.max_response_length=${max_response_length_} \
+    data.train_batch_size=16 \
+    data.max_prompt_length=512 \
+    data.max_response_length=1024 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
@@ -81,8 +67,13 @@ python3 -u -m verl.trainer.main_ppo \
     +actor_rollout_ref.model.enable_activation_offload=True \
     +actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=16 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.actor.profiler.enable=True \
+    actor_rollout_ref.actor.profiler.ranks=[0,1,2,3,4,5,6,7] \
+    actor_rollout_ref.actor.profiler.tool=torch \
+    actor_rollout_ref.actor.profiler.tool_config.torch.step_start=0 \
+    actor_rollout_ref.actor.profiler.tool_config.torch.step_end=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=8 \
@@ -128,4 +119,4 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/DeepSeek-V2-Lite_ppo_ep8_pref2.log
+    2>&1 | tee ../logs/DeepSeek-V2-Lite_ppo_ep8_actor_pref.log

@@ -143,10 +143,10 @@ profiler:
   tool: ${oc.select:global_profiler.tool,null}
 
   # whether enable profile on Actor
-  enable: True # False
+  enable: False
   
   # Whether to profile all ranks.
-  all_ranks: True # False
+  all_ranks: False
 
   # The ranks that will be profiled. [] or [0,1,...]
   ranks: [0]

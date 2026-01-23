@@ -658,6 +658,7 @@ if __name__ == "__main__":
         import os
         import sys
         if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa":
+            # musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/megatron-lm-musa-patch')
             musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/verl-musa-patch')
             sys.path.append(musa_patch_path)
             import musa_patch    

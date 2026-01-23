@@ -169,7 +169,7 @@ class AsyncEngine(sglang.srt.entrypoints.engine.Engine):
 
     # 训练结束后更新模型权重
     async def update_weights_from_tensor(self, update_weights_request: UpdateWeightsFromTensorReqInput):
-        logger.warning(f"AsyncEngine self.tokenizer_manager class is: {self.tokenizer_manager}") # sglang.srt.managers.tokenizer_manager.TokenizerManager
+        # logger.warning(f"AsyncEngine self.tokenizer_manager class is: {self.tokenizer_manager}") # sglang.srt.managers.tokenizer_manager.TokenizerManager
         # 调用SGlang中 TokenizerManager 方法
         return await self.tokenizer_manager.update_weights_from_tensor(update_weights_request, None)
 
@@ -384,6 +384,21 @@ class SGLangRollout(BaseRollout):
         self._tp_size = self._device_mesh_cpu["tp"].size()
         if self._rank == 0:
             logger.info(f"_init_distributed_env: :tp_world: {self._tp_size}, global_world: {world_size}")
+
+        from .utils import init_process_group
+        master_address = '127.0.0.1'
+        master_port = 1598 +  self._rank - self._rank % tp_size
+        from datetime import timedelta
+        timeout = timedelta(seconds=3000)
+        self.gloo_group_for_barrier = init_process_group(
+            backend='gloo',
+            timeout=timeout,
+            init_method=f"tcp://{master_address}:{master_port}",
+            world_size=tp_size,
+            rank=self._tp_rank,
+            group_name='gloo_group_for_barrier',
+        )
+
         # get tp_rank of this process in this tp group
         visible_devices = [None] * self._device_mesh_cpu.size(1)
         devices_keyword = get_visible_devices_keyword() # MUSA_VISIBLE_DEVICES
@@ -517,7 +532,7 @@ class SGLangRollout(BaseRollout):
                 "model_path": actor_module,
                 "dtype": self.config.dtype,
                 "mem_fraction_static": self.config.gpu_memory_utilization,
-                # "enable_memory_saver": True, # 启动 torch-memory-saver
+                "enable_memory_saver": True, # 启动 torch-memory-saver
                 "base_gpu_id": 0,
                 "gpu_id_step": 1,
                 "tp_size": self._tp_size,
@@ -871,12 +886,17 @@ class SGLangRollout(BaseRollout):
             end_time = time.time()
             run_time = end_time - start_time
             logger.warning(f"TP_Rank: {self._tp_rank} generate sequence time: {run_time:.6f} s")
+            # barrier_tensor = torch.rand(2,3)
         else:
             logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
-            time.sleep(300) # 测试pref
-            # time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
+            # time.sleep(360) # 测试pref, 跑多步 DeepSeek-V2-Lite的时候需要用这个
+            # time.sleep(240) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
+            # time.sleep(40) # DeepSeek-V2-Lite 模型 EP8 配置下 demo 的所需时间
             output = None
+            # barrier_tensor = torch.rand(2,3)
 
+        # torch.distributed.all_reduce(barrier_tensor,group=self.gloo_group_for_barrier)
+        torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
         logger.warning(f"TP_Rank: {self._tp_rank}, SGLangRollout _batch_level_generate_sequences before dist.barrier()") # DEBUG
         # Most naive implementation, can extract tensor and send via gloo if too slow
@@ -1644,11 +1664,13 @@ class SGLangRollout(BaseRollout):
         """
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._engine.resume_memory_occupation(tags=tags)
+        torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
     async def release(self):
         """Release weights and kv cache in GPU memory."""
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._engine.release_memory_occupation(tags=["kv_cache", "weights"])
+        torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
     async def update_weights(self, weights: Generator[tuple[str, torch.Tensor], None, None], **kwargs):
         """
@@ -1696,6 +1718,7 @@ class SGLangRollout(BaseRollout):
                 device_mesh_key="infer_tp",
                 device_mesh=self.device_mesh,
             )
+            torch.distributed.barrier(group=self.gloo_group_for_barrier) # ATTN update weights后添加同步
             # dist.barrier() # ATTN 尝试直接在这里做同步，不行，依旧会导致阻塞
             # tp_rank 非0进程会重新开始一轮循环，在 per_tensor_generator 函数中 存在 all-gather 操作
 

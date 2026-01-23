@@ -42,6 +42,7 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # export TORCH_SAFE_SERIALIZATION=1
 
 export VLLM_PATCH_MUSA_CUSTOM_OPS=1
+export MUSA_LOG=0x1 # 查看 MUSA API报错
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
@@ -54,6 +55,7 @@ python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
+    global_profiler.steps='[1, 2]' \
     data.train_files=$train_files \
     data.val_files=$test_files \
     data.train_batch_size=16 \
@@ -68,6 +70,11 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.ppo_mini_batch_size=8 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.actor.profiler.enable=True \
+    actor_rollout_ref.actor.profiler.ranks=[0] \
+    actor_rollout_ref.actor.profiler.tool=torch \
+    actor_rollout_ref.actor.profiler.tool_config.torch.step_start=0 \
+    actor_rollout_ref.actor.profiler.tool_config.torch.step_end=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=8 \
