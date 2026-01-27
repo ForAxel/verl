@@ -129,6 +129,7 @@ class MegatronPPOActor(BasePPOActor):
             )
         else:
             self.prof = None
+        logger.warning(f"MegatronPPOActor, self.use_torch_profiler: {self.use_torch_profiler}, self.prof: {type(self.prof)}") # DEBUG
         self.use_fused_kernels = self.config.get("use_fused_kernels", False)
         if self.use_fused_kernels:
             from verl.models.mcore.model_forward_fused import patch_fused_forward
@@ -631,7 +632,10 @@ class MegatronPPOActor(BasePPOActor):
             and users have to combine the output in each dp rank manually.
 
         """
+        # 单步更新后停止 Profile
         metrics = {}
+        if self.prof is not None:
+            logger.warning(f"self.prof is: {self.prof}, self.prof.enable: {self.prof.enable}")
         if self.use_torch_profiler and self.prof and self.prof.enable:
             self.prof.start()
         for data in dataloader:
@@ -675,6 +679,7 @@ class MegatronPPOActor(BasePPOActor):
                 self.prof.step()
         # add empty cache after each compute
         if self.use_torch_profiler and self.prof and self.prof.enable:
+            logger.warning(f"MegatronPPOActor update_policy FUNC, self.prof class is: {type(self.prof)}, Try to stop_and_save()")
             self.prof.stop_and_save()
             self.prof.stop_trace()
         get_torch_device().empty_cache()

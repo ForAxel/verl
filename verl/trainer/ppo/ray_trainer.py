@@ -940,6 +940,7 @@ class RayPPOTrainer:
     def _start_profiling(self, do_profile: bool) -> None:
         """Start profiling for all worker groups if profiling is enabled."""
         if do_profile:
+            logger.warning(f"=========== RayPPOTrainer _start_profiling ===========")
             self.actor_rollout_wg.start_profile(role="e2e", profile_step=self.global_steps)
             if self.use_reference_policy:
                 self.ref_policy_wg.start_profile(profile_step=self.global_steps)
@@ -951,7 +952,9 @@ class RayPPOTrainer:
     def _stop_profiling(self, do_profile: bool) -> None:
         """Stop profiling for all worker groups if profiling is enabled."""
         if do_profile:
+            logger.warning(f"=========== RayPPOTrainer _stop_profiling ===========")
             self.actor_rollout_wg.stop_profile()
+            # self.actor_rollout_wg.stop_and_save_profile() # 停止并保存
             if self.use_reference_policy:
                 self.ref_policy_wg.stop_profile()
             if self.use_critic:
@@ -1107,6 +1110,7 @@ class RayPPOTrainer:
             else False
         )
         next_step_profile = False
+        # print(f"RayPPOTrainer step: {self.global_steps}, curr_step_profile: {curr_step_profile}")
 
         for epoch in range(self.config.trainer.total_epochs):
             for batch_dict in self.train_dataloader:

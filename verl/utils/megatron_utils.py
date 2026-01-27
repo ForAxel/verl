@@ -848,7 +848,7 @@ def per_tensor_generator(
     dp_rank = mpu.get_data_parallel_rank() # DEBUG
     tp_rank = mpu.get_tensor_model_parallel_rank() # DEBUG
 
-    logger.warning(f"per_tensor_generator, dp_rank: {dp_rank}, tp_rank: {tp_rank} ")
+    # logger.warning(f"per_tensor_generator, dp_rank: {dp_rank}, tp_rank: {tp_rank} ")
     
     pp_rank = mpu.get_pipeline_model_parallel_rank()
     ep_size = mpu.get_expert_model_parallel_world_size()

@@ -60,6 +60,8 @@ class Profiler:
         self.rank = torch.distributed.get_rank()
         # we need to validate the config before using the profiler
         self._validate()
+        # DEBUG
+        logger.warning(f"Profiler class, config: {self.config}, tool_config: {self.tool_config}")
         logger.warning(f"RANK: {self.rank}, self.config.all_ranks is: {self.config.all_ranks}, self.config.ranks: {self.config.ranks}")
         if self.config.all_ranks==True or self.rank in self.config.ranks:
             print(f"[Profiler] Profiler init for rank {self.rank}")
@@ -232,6 +234,9 @@ class DistProfiler:
 
     def stop(self):
         return getattr(self._impl, "stop", lambda: None)()
+    
+    def stop_and_save(self):
+        return getattr(self._impl, "stop_and_save", lambda: None)()
 
     @classmethod
     def annotate(
@@ -375,3 +380,8 @@ class DistProfilerExtension:
     def stop_profile(self) -> None:
         """Stop profiling for the current rank in the current training step."""
         self.profiler.stop()
+
+    @register(dispatch_mode=Dispatch.ONE_TO_ALL)
+    def stop_and_save_profile(self) -> None:
+        """Stop profiling for the current rank in the current training step."""
+        self.profiler.stop_and_save()

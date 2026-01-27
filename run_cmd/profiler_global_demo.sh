@@ -51,7 +51,8 @@ python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
     algorithm.adv_estimator=grpo \
-    global_profiler.steps='[1]' \
+    global_profiler.tool='torch' \
+    global_profiler.save_path='/home/verl_pref_output/tmp_pref' \
     data.train_files=$train_files \
     data.val_files=$test_files \
     data.train_batch_size=4 \
@@ -64,7 +65,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.ppo_mini_batch_size=4 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
-    actor_rollout_ref.actor.profiler.enable=False \
+    actor_rollout_ref.actor.profiler.enable=True \
     actor_rollout_ref.actor.profiler.all_ranks=True \
     actor_rollout_ref.actor.profiler.tool=torch \
     actor_rollout_ref.actor.profiler.tool_config.torch.step_start=0 \

@@ -706,8 +706,8 @@ class SGLangRollout(BaseRollout):
             responses:     |<- LLM generation ->|<- tool_calls ->|<- LLM generation ->|<- padding ->|
             response_mask: | 1, 1, 1, ..., 1, 1 | 0, 0, .., 0, 0 | 1, 1, 1, ..., 1, 1 | 0, 0, ..., 0|
         """
-        print(f"sglang_rollout.py self.config.multi_turn.enable: {self.config.multi_turn.enable}") # DEBUG
-        logger.warning(f"sglang_rollout.py generate_sequences prompts.batch: {prompts.batch}")
+        # print(f"sglang_rollout.py self.config.multi_turn.enable: {self.config.multi_turn.enable}") # DEBUG
+        # logger.warning(f"sglang_rollout.py generate_sequences prompts.batch: {prompts.batch}")
         if self.config.multi_turn.enable: # False
             return self._req_level_generate_sequences(prompts, **kwargs)
         return self._batch_level_generate_sequences(prompts, **kwargs)
@@ -756,8 +756,8 @@ class SGLangRollout(BaseRollout):
         Thus we do not need to repeat the prompts here and set the sampling parameter n to 1.
         """
         # DEBUG
-        logger.warning("log SGLangRollout _batch_level_generate_sequences start")
-        logger.warning(f"prompts.meta_info: {prompts.meta_info}")
+        # logger.warning("log SGLangRollout _batch_level_generate_sequences start")
+        # logger.warning(f"prompts.meta_info: {prompts.meta_info}")
 
         # input ids: (bs, prompt_length), left-padded
         idx = prompts.batch["input_ids"]
@@ -774,7 +774,7 @@ class SGLangRollout(BaseRollout):
         # Extract non-tensor data
         non_tensor_batch = prompts.non_tensor_batch
         
-        logger.warning(f"non_tensor_batch keys(): {non_tensor_batch.keys()}") # DEBUG
+        # logger.warning(f"non_tensor_batch keys(): {non_tensor_batch.keys()}") # DEBUG
         # ['ability', 'raw_prompt_ids', 'tools_kwargs', 'index', 'interaction_kwargs']
 
         if "raw_prompt_ids" not in non_tensor_batch:
@@ -824,7 +824,7 @@ class SGLangRollout(BaseRollout):
 
         # Create request-level sampling parameters
         request_sampling_params = self.sampling_params.copy()
-        logger.warning(f"do_sample is: {do_sample}, is_validate is: {is_validate}")
+        # logger.warning(f"do_sample is: {do_sample}, is_validate is: {is_validate}")
         # do_sample is: True, is_validate is: False
         if not do_sample:
             request_sampling_params.update(
@@ -865,15 +865,7 @@ class SGLangRollout(BaseRollout):
             # verl.workers.rollout.sglang_rollout.sglang_rollout.AsyncEngine
             request_sampling_params["repetition_penalty"] = 1.1 # DEBUG 手动修改参数
             logger.warning(f"SGLangRollout request_sampling_params: {request_sampling_params}") # DEBUG
-            # # DEBUG 存储generate阶段的input_id
-            # # logger.warning(f"SGLangRollout _batch_level_generate_sequences input_ids: {idx_list}")
-            # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/tmp_data/sglang_rollout_input_ids.pkl", "wb") as f:
-            #     pickle.dump(idx_list, f)
 
-            # assert 1==2 # DEBUG
-            # {'n': 1, 'max_new_tokens': 32, 'presence_penalty': 0.0, 'frequency_penalty': 0.0, 
-            # 'repetition_penalty': 1.0, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 
-            # 'ignore_eos': False}
             output = loop.run_until_complete(
                 self._engine.async_generate(
                     prompt=None,  # because we have already convert it to prompt token id
@@ -888,7 +880,7 @@ class SGLangRollout(BaseRollout):
             logger.warning(f"TP_Rank: {self._tp_rank} generate sequence time: {run_time:.6f} s")
             # barrier_tensor = torch.rand(2,3)
         else:
-            logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
+            # logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
             # time.sleep(360) # 测试pref, 跑多步 DeepSeek-V2-Lite的时候需要用这个
             # time.sleep(240) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
             # time.sleep(40) # DeepSeek-V2-Lite 模型 EP8 配置下 demo 的所需时间

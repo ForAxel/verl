@@ -257,10 +257,12 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         else:
             tool_config = None
 
+        logger.warning(f"ActorRolloutRefWorker __init__ Role: {self.role}; DistProfiler config: {profiler_config}, tool_config: {tool_config}")
+
         # 初始化分布式性能分析器
         DistProfilerExtension.__init__(
             self, DistProfiler(rank=self.rank, config=profiler_config, tool_config=tool_config)
-        )
+        )# self.profiler = DistProfiler()
 
         # TODO(sgm): Currently, we only support reference model param offload
         # will support other offload later
@@ -746,11 +748,10 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         timing_generate = {}
         if self._is_actor:  # For rollout only, we do not switch context.
             loop = get_event_loop()
-            logger.warning(f"ActorRolloutRefWorker generate_sequences FUNC loop is: {loop}")
-            logger.warning(f"Rank: {self.rank}, START Switch to rollout mode...")
+            # logger.warning(f"ActorRolloutRefWorker generate_sequences FUNC loop is: {loop}")
+            # logger.warning(f"Rank: {self.rank}, START Switch to rollout mode...")
             loop.run_until_complete(self.rollout_mode()) # 阻塞调用，等待 self.rollout_mode() 完成,在这里卡住了
-            logger.warning(f"Rank: {self.rank}, FINISH Switch to rollout mode...")
-            # assert 1==2 
+            # logger.warning(f"Rank: {self.rank}, FINISH Switch to rollout mode...")
             log_gpu_memory_usage("After switch to rollout mode", logger=logger)
             
             print(f"Rank: {self.rank}, FINISH loop {loop}")
