@@ -50,7 +50,7 @@ actor_rollout_ref:
         - core_attn
         recompute_method: null
         recompute_num_layers: null
-        attention_backend: flash
+        attention_backend: null
       override_mcore_model_config: {}
       use_mbridge: true
       vanilla_mbridge: true
@@ -456,7 +456,7 @@ critic:
       - core_attn
       recompute_method: null
       recompute_num_layers: null
-      attention_backend: flash
+      attention_backend: null
     override_mcore_model_config: {}
     use_mbridge: true
     vanilla_mbridge: true
