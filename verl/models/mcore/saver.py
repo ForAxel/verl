@@ -491,6 +491,10 @@ def merge_megatron_ckpt_gptmodel_dpskv3(wrapped_models, config, dtype, is_value_
     raise NotImplementedError("merge_megatron_ckpt_gptmodel_dpskv3 is not implemented")
 
 
+def merge_megatron_ckpt_gptmodel_dpskv2(wrapped_models, config, dtype, is_value_model=False, tie_word_embeddings=False):
+    raise NotImplementedError("merge_megatron_ckpt_gptmodel_dpskv3 is not implemented")
+
+
 def merge_megatron_ckpt_gptmodel_mixtral(
     wrapped_models, config, dtype, is_value_model=False, tie_word_embeddings=False
 ):

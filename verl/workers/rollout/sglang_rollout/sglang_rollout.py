@@ -29,6 +29,7 @@ from sglang.srt.utils import (
     is_cuda,
     set_prometheus_multiproc_dir,
     set_ulimit,
+    is_musa,
 )
 from sglang.srt.weight_sync.utils import update_weights as sgl_update_weights
 from torch.distributed.device_mesh import DeviceMesh
@@ -39,7 +40,7 @@ from verl.workers.rollout.base import BaseRollout
 from verl.workers.rollout.sglang_rollout.http_server_engine import AsyncHttpServerAdapter
 from verl.workers.rollout.sglang_rollout.utils import get_named_tensor_buckets
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
 
 
@@ -52,6 +53,16 @@ def _set_envs_and_config(server_args: ServerArgs):
     os.environ["TORCH_NCCL_AVOID_RECORD_STREAMS"] = "1"
     os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "4"
     os.environ["CUDA_MODULE_LOADING"] = "AUTO"
+    # Enable faulthandler in subprocesses
+    os.environ["PYTHONFAULTHANDLER"] = "1"
+
+    # Set global environments
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    os.environ["MCCL_CUMEM_ENABLE"] = "0"
+    os.environ["MCCL_NVLS_ENABLE"] = str(int(server_args.enable_nccl_nvls))
+    os.environ["TORCH_MCCL_AVOID_RECORD_STREAMS"] = "1"
+    os.environ["MUSA_DEVICE_MAX_CONNECTIONS"] = "4"
+    os.environ["MUSA_MODULE_LOADING"] = "AUTO"
     # Enable faulthandler in subprocesses
     os.environ["PYTHONFAULTHANDLER"] = "1"
 
@@ -69,7 +80,7 @@ def _set_envs_and_config(server_args: ServerArgs):
             "0.2.5",
             "Please uninstall the old version and reinstall the latest version by following the instructions at https://docs.flashinfer.ai/installation.html.",
         )
-    if is_cuda():
+    if is_cuda() or is_musa():
         assert_pkg_version(
             "sgl-kernel",
             "0.1.1",
@@ -124,6 +135,21 @@ class ServerAdapter(BaseRollout):
         self.rollout_rank = rank % rollout_world_size
         self.node_rank = self.rollout_rank // local_world_size
         self.local_rank = self.rollout_rank % local_world_size
+
+        from .utils import init_process_group
+        tp_size = self.config.tensor_model_parallel_size
+        master_address = '127.0.0.1'
+        master_port = 1598 +  rank - rank % tp_size
+        from datetime import timedelta
+        timeout = timedelta(seconds=3000)
+        self.gloo_group_for_barrier = init_process_group(
+            backend='gloo',
+            timeout=timeout,
+            init_method=f"tcp://{master_address}:{master_port}",
+            world_size=tp_size,
+            rank=self.rollout_rank, #self._tp_rank,
+            group_name='gloo_group_for_barrier',
+        )
 
     async def _init_server_adapter(self):
         if self._engine is not None:
@@ -189,7 +215,7 @@ class ServerAdapter(BaseRollout):
             )
         else:
             weights = weights
-
+        logger.warning(f"ServerAdapter try to update weights...")
         for params_batch in get_named_tensor_buckets(weights, update_weights_bucket_bytes):
             await sgl_update_weights(
                 engine=self._engine,
@@ -197,6 +223,7 @@ class ServerAdapter(BaseRollout):
                 device_mesh_key="infer_tp",
                 device_mesh=self.device_mesh,
             )
+            torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
         if self.device_mesh["infer_tp"].get_local_rank() == 0:
             await self._engine.flush_cache()

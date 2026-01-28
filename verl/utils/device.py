@@ -41,6 +41,7 @@ def is_torch_npu_available(check_device=True) -> bool:
 
 is_cuda_available = torch.cuda.is_available()
 is_npu_available = is_torch_npu_available()
+is_musa_available  = torch.musa.is_available()
 
 
 def get_resource_name() -> str:
@@ -61,7 +62,14 @@ def get_visible_devices_keyword() -> str:
         str: 'CUDA_VISIBLE_DEVICES' if CUDA is available,
             'ASCEND_RT_VISIBLE_DEVICES' otherwise.
     """
-    return "CUDA_VISIBLE_DEVICES" if not is_torch_npu_available(check_device=False) else "ASCEND_RT_VISIBLE_DEVICES"
+    # return "CUDA_VISIBLE_DEVICES" if not is_torch_npu_available(check_device=False) else "ASCEND_RT_VISIBLE_DEVICES"
+    if is_musa_available:
+        return "MUSA_VISIBLE_DEVICES"
+        # return "CUDA_VISIBLE_DEVICES" # 直接使用 CUDA_VISIBLE_DEIVCES 管理
+    elif is_cuda_available:
+        return "CUDA_VISIBLE_DEVICES"
+    else:
+        return "ASCEND_RT_VISIBLE_DEVICES"
 
 
 def get_device_name() -> str:
@@ -73,7 +81,9 @@ def get_device_name() -> str:
     Returns:
         str: Device type string ('cuda', 'npu', or 'cpu').
     """
-    if is_cuda_available:
+    if is_musa_available:
+        device = 'musa'
+    elif is_cuda_available:
         device = "cuda"
     elif is_npu_available:
         device = "npu"
@@ -107,6 +117,7 @@ def get_device_id() -> int:
         int: The current device index (e.g., 0 for 'cuda:0').
     """
     return get_torch_device().current_device()
+    # TODO 检测这里是否需要修改
 
 
 def get_nccl_backend() -> str:
@@ -118,7 +129,9 @@ def get_nccl_backend() -> str:
     Returns:
         str: Backend name ('hccl' for NPU, 'nccl' for CUDA/default).
     """
-    if is_npu_available:
+    if is_musa_available:
+        return 'mccl'
+    elif is_npu_available:
         return "hccl"
     else:
         # default to nccl
@@ -138,7 +151,9 @@ def set_expandable_segments(enable: bool) -> None:
     Note:
         This function only has an effect when CUDA is available.
     """
-    if is_cuda_available:
+    if is_musa_available:
+        torch.musa.memory._set_allocator_settings(f"expandable_segments:{enable}")
+    elif is_cuda_available:
         torch.cuda.memory._set_allocator_settings(f"expandable_segments:{enable}")
 
 
@@ -161,6 +176,9 @@ def auto_set_device(config) -> None:
 
             config.trainer.device = "npu"
         # Other cases: set device to "cuda" via config file, no need to change.
+        if is_musa_available:
+            config.trainer.device = "musa"
+
 
 
 def get_device_capability(device_id: int = 0) -> tuple[int | None, int | None]:
@@ -176,5 +194,7 @@ def get_device_capability(device_id: int = 0) -> tuple[int | None, int | None]:
     major, minor = None, None
     if is_cuda_available:
         major, minor = torch.cuda.get_device_capability(device_id)
+    elif is_musa_available:
+        major, minor = torch.musa.get_device_capability(device_id)
 
     return major, minor

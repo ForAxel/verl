@@ -34,6 +34,10 @@ try:
     from flash_attn.ops.triton.cross_entropy import cross_entropy_loss
 
     FLAH_ATTN_CROSS_ENTROPY_LOSS_AVAILABLE = True
+    
+    from verl.utils.device import is_npu_available,is_musa_avaiable
+    if is_musa_avaiable:
+        FLAH_ATTN_CROSS_ENTROPY_LOSS_AVAILABLE = False
 except ImportError:
     FLAH_ATTN_CROSS_ENTROPY_LOSS_AVAILABLE = False
 

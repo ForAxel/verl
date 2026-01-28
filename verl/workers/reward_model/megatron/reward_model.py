@@ -47,7 +47,7 @@ class MegatronRewardModel(BasePPORewardModel):
         self.hf_config = hf_config
         self.tf_config = tf_config
         self.model_config = model_config
-        self.device = "cuda"
+        self.device = "musa"
         self.sft_tokenizer = sft_tokenizer
         self.rm_tokenizer = rm_tokenizer
         self.use_different_tokenizer = rm_tokenizer is not None
@@ -333,7 +333,7 @@ class MegatronRewardModel(BasePPORewardModel):
         return losses_reduced
 
     def offload_params_to_cpu(self):
-        if self.device in ["cuda", "npu"]:
+        if self.device in ["cuda", "npu", "musa"]:
             for reward_model_module in self.reward_model_module:
                 for name, param in reward_model_module.named_parameters():
                     param.data = param.data.to("cpu", non_blocking=True)

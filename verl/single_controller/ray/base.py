@@ -112,7 +112,7 @@ class RayResourcePool(ResourcePool):
         self.detached = detached
         self.accelerator_type = accelerator_type
 
-    def get_placement_groups(self, strategy="STRICT_PACK", name=None, device_name="cuda"):
+    def get_placement_groups(self, strategy="STRICT_PACK", name=None, device_name="musa"):
         if self.pgs is not None:
             return self.pgs
 
@@ -124,6 +124,11 @@ class RayResourcePool(ResourcePool):
             device_name = "NPU"
         elif device_name == "cuda":
             device_name = "GPU"
+        elif device_name == "musa":
+            device_name = "GPU"
+        else:
+            logger.warning(f"RayResourcePool get_placement_groups FUNC, device_name is: {device_name}")
+            raise NotImplementedError
 
         bundle = {"CPU": self.max_colocate_count}
         if self.use_gpu:
@@ -293,7 +298,7 @@ class RayClassWithInitArgs(ClassWithInitArgs):
         use_gpu: bool = True,
         num_gpus=1,
         sharing_with=None,
-        device_name="cuda",
+        device_name="musa",
     ) -> Any:
         """Create and return a Ray actor with the configured options.
 
@@ -325,6 +330,8 @@ class RayClassWithInitArgs(ClassWithInitArgs):
             options["num_gpus"] = num_gpus
         if use_gpu and device_name == "npu":
             options["resources"] = {"NPU": num_gpus}
+        if use_gpu and device_name == "musa":
+            options["num_gpus"] = num_gpus
 
         if len(self._additional_resource) > 1:
             for k, v in self._additional_resource.items():
@@ -380,7 +387,8 @@ class RayWorkerGroup(WorkerGroup):
         # if a WorkerGroup is spawned from Colocate WorkerGroup, this indicates which sub-class is binded to
         # this WorkerGroup.
         self.sub_cls_name = ""
-        self.device_name = kwargs.get("device_name", "cuda")
+        self.device_name = kwargs.get("device_name", "musa")
+        logger.warning(f"RayWorkerGroup self.device_name is: {self.device_name}")
         self.profile_steps = kwargs.get("profile_steps", None)
         self.worker_nsight_options = kwargs.get("worker_nsight_options", None)
         self.customized_worker_env = kwargs.get("worker_env", {})
@@ -568,7 +576,7 @@ class RayWorkerGroup(WorkerGroup):
         cia_name = match.group(1) if match else cia_name  # "ActorClass(Obj)" -> "Obj"
         name = f"{self.name_prefix}{cia_name}_{pg_idx}:{local_rank}"  # e.g. Worker_2:5
 
-        if self.profile_steps and self.device_name == "cuda":
+        if self.profile_steps and self.device_name in ["cuda", "musa"]:
             ray_cls_with_init.update_options(
                 {
                     "runtime_env": {

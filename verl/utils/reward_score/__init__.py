@@ -41,6 +41,14 @@ def default_compute_score(
     Raises:
         NotImplementedError: If the reward function is not implemented for the given data source.
     """
+    from verl.utils.reward_score.deepscaler_math.math_reward import deepscaler_reward_fn
+    res = deepscaler_reward_fn(solution_str, ground_truth)
+
+    if isinstance(res, (int, float, bool)):
+        return float(res)
+    else:
+        return float(res[0])
+    
     if data_source == "openai/gsm8k":
         from . import gsm8k
 

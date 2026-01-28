@@ -55,6 +55,7 @@ from verl.utils.device import (
     get_device_name,
     is_cuda_available,
     is_npu_available,
+    is_musa_avaiable,
 )
 from verl.utils.distributed import destroy_global_process_group, initialize_global_process_group
 from verl.utils.fs import copy_to_local
@@ -243,6 +244,7 @@ class FSDPSFTTrainer:
                 torch_dtype=torch_dtype,
                 attn_implementation="flash_attention_2",
                 trust_remote_code=trust_remote_code,
+                # device_map="musa",
             )
 
             if self.use_remove_padding or self.config.ulysses_sequence_parallel_size > 1:

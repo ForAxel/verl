@@ -28,8 +28,16 @@ from verl.trainer.ppo.ray_trainer import RayPPOTrainer
 from verl.trainer.ppo.reward import load_reward_manager
 from verl.trainer.ppo.utils import need_critic, need_reference_policy
 from verl.utils.config import validate_config
-from verl.utils.device import auto_set_device, is_cuda_available
+from verl.utils.device import auto_set_device, is_cuda_available, is_musa_available
 from verl.utils.import_utils import load_extern_object
+
+import logging
+
+import os
+logger = logging.getLogger(__name__)
+logger.setLevel(os.getenv("VERL_LOGGING_LEVEL", "WARN"))
+
+from pathlib import Path
 
 
 @hydra.main(config_path="config", config_name="ppo_trainer", version_base=None)
@@ -40,9 +48,32 @@ def main(config):
         config: Hydra configuration dictionary containing training parameters.
     """
     # Automatically set `config.trainer.device = npu` when running on Ascend NPU.
+    print(f"config type: {type(config)}")
+    OmegaConf.save(config, "/home/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
     auto_set_device(config)
 
     run_ppo(config)
+
+
+def get_ray_env_from_file():
+    """
+    直接读取文件中的配置
+    """
+    import yaml
+    current_path = Path(__file__).resolve()
+    two_levels_up = current_path.parents[2] 
+    env_file_path = os.path.join(two_levels_up, "runtime_env.yaml")
+    logger.info(f"Ray env file path is: {env_file_path}")
+    with open(env_file_path, 'r', encoding='utf-8') as file:
+        data = yaml.safe_load(file)
+
+    #ATTN 强制修改了PYTHONPATH
+    MEGATRON_PATH = data["env_vars"]["MEGATRON_PATH"]
+    VERL_PATH = data["env_vars"]["VERL_PATH"]
+    MUSA_PATCH_PATH = data["env_vars"]["MUSA_PATCH_PATH"]
+    custom_python_path = f"{MEGATRON_PATH}:{MUSA_PATCH_PATH}:{VERL_PATH}"
+    data["env_vars"]["PYTHONPATH"] = custom_python_path
+    return data
 
 
 # Define a function to run the PPO-like training process
@@ -55,26 +86,42 @@ def run_ppo(config, task_runner_class=None) -> None:
                 model paths, and training hyperparameters.
         task_runner_class: For recipe to change TaskRunner.
     """
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"START run_ppo, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
     # Check if Ray is not initialized
     if not ray.is_initialized():
-        # Initialize Ray with a local cluster configuration
-        # Set environment variables in the runtime environment to control tokenizer parallelism,
-        # NCCL debug level, VLLM logging level, and allow runtime LoRA updating
-        # `num_cpus` specifies the number of CPU cores Ray can use, obtained from the configuration
-        default_runtime_env = get_ppo_ray_runtime_env()
-        ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
-        runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
+        # # Initialize Ray with a local cluster configuration
+        # # Set environment variables in the runtime environment to control tokenizer parallelism,
+        # # NCCL debug level, VLLM logging level, and allow runtime LoRA updating
+        # # `num_cpus` specifies the number of CPU cores Ray can use, obtained from the configuration
+        # default_runtime_env = get_ppo_ray_runtime_env()
+        # ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
+        # runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
 
-        if config.transfer_queue.enable:
-            # Add runtime environment variables for transfer queue
-            runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
-            runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
-            runtime_env_kwargs["env_vars"] = runtime_env_vars
+        # if config.transfer_queue.enable:
+        #     # Add runtime environment variables for transfer queue
+        #     runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
+        #     runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
+        #     runtime_env_kwargs["env_vars"] = runtime_env_vars
 
-        runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
-        ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
-        print(f"ray init kwargs: {ray_init_kwargs}")
-        ray.init(**OmegaConf.to_container(ray_init_kwargs))
+        # runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
+        # ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
+        # print(f"ray init kwargs: {ray_init_kwargs}")
+        # ray.init(**OmegaConf.to_container(ray_init_kwargs))
+
+        sys_runtime_env = get_ray_env_from_file()
+        
+        ray.init(
+            runtime_env=sys_runtime_env,
+            logging_level=logging.DEBUG,
+        )
+
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"AFTER init Ray, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+    
 
     if task_runner_class is None:
         task_runner_class = ray.remote(num_cpus=1)(TaskRunner)  # please make sure main_task is not scheduled on head
@@ -82,7 +129,7 @@ def run_ppo(config, task_runner_class=None) -> None:
     # Create a remote instance of the TaskRunner class, and
     # Execute the `run` method of the TaskRunner instance remotely and wait for it to complete
     if (
-        is_cuda_available
+        (is_cuda_available or is_musa_available)
         and config.global_profiler.tool == "nsys"
         and config.global_profiler.get("steps") is not None
         and len(config.global_profiler.get("steps", [])) > 0
@@ -96,6 +143,10 @@ def run_ppo(config, task_runner_class=None) -> None:
         runner = task_runner_class.options(runtime_env={"nsight": nsight_options}).remote()
     else:
         runner = task_runner_class.remote()
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    logger.warning(f"run_ppo, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
     ray.get(runner.run.remote(config))
 
     # [Optional] get the path of the timeline trace file from the configuration, default to None
@@ -275,6 +326,11 @@ class TaskRunner:
 
         from verl.utils.fs import copy_to_local
 
+        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+        logger.warning(f"TaskRunner run START, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
+
         print(f"TaskRunner hostname: {socket.gethostname()}, PID: {os.getpid()}")
         pprint(OmegaConf.to_container(config, resolve=True))
         OmegaConf.resolve(config)
@@ -360,8 +416,16 @@ class TaskRunner:
             collate_fn=collate_fn,
             train_sampler=train_sampler,
         )
+        
+        cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+        musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+        logger.warning(f"TaskRunner run, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+
         # Initialize the workers of the trainer.
         trainer.init_workers()
+
+        logger.warning(f"trainer.init_workers() success")
+        logger.warning(f"trainer.fit() start")
 
         # Start the training process.
         trainer.fit()

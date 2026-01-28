@@ -65,8 +65,8 @@ python3 -u -m verl.trainer.main_ppo \
     data.prompt_key=prompt \
     data.truncation='error' \
     actor_rollout_ref.model.path=$HF_MODEL_PATH \
-    +actor_rollout_ref.model.enable_activation_offload=True \
-    +actor_rollout_ref.model.enable_gradient_checkpointing=True \
+    actor_rollout_ref.model.enable_activation_offload=True \
+    actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.ppo_mini_batch_size=8 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
@@ -116,4 +116,4 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    > ../logs/DeepSeek-V2-Lite_ppo_ep8_multisteps.log 2>&1
+    2>&1 | tee ../logs/newVerl/DeepSeek-V2-Lite_ppo_ep8_multisteps.log

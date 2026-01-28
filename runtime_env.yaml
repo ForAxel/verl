@@ -7,8 +7,8 @@ env_vars:
   # ====== MUSA log ======
   # MUSA_LOG: "0xf"
   # ====== xpu debug ======
-  MCCL_LIB: "/usr/local/musa/lib/libmccl.so"
-  LOCAL_WORLD_SIZE: "2" # 8
+  # MCCL_LIB: "/usr/local/musa/lib/libmccl.so"
+  # LOCAL_WORLD_SIZE: "2" # 8
   #XPU_TIMER_TIMELINE_PATH: "/home/verl/run_cmd/xputimer_debug"
   # XPU_TIMER_HANG_TIMEOUT: "240" # Hang检测超时设置小于kernel execution timeout （单位：秒？）
   #XPU_TIMER_HANG_TIMEOUT: "60"

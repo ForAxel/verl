@@ -130,6 +130,10 @@ class SGLangHttpServer:
             self._master_address = None
             self._master_port = None
 
+        # DEBUG
+        # logger.warning(f"SGLangHttpServer __init__ config is: {self.config}")
+        # assert 1==2
+
     def get_master_address(self):
         """Get master address and port for init NCCL process group."""
         return self._master_address, self._master_port
@@ -172,7 +176,7 @@ class SGLangHttpServer:
             "model_path": self.model_config.local_path,
             "dtype": self.config.dtype,
             "mem_fraction_static": self.config.gpu_memory_utilization,
-            "disable_cuda_graph": self.config.enforce_eager,
+            "disable_cuda_graph": True, #self.config.enforce_eager,
             "enable_memory_saver": True,
             "base_gpu_id": self.base_gpu_id,
             "gpu_id_step": 1,
@@ -185,9 +189,9 @@ class SGLangHttpServer:
             "nnodes": self.nnodes,
             "trust_remote_code": self.model_config.trust_remote_code,
             "max_running_requests": self.config.get("max_num_seqs", None),
-            "log_level": "error",
-            "mm_attention_backend": "fa3",
-            "attention_backend": attention_backend if attention_backend is not None else "fa3",
+            "log_level": "info",
+            "mm_attention_backend": "triton", # "fa3",
+            "attention_backend": "triton", #attention_backend if attention_backend is not None else "fa3",
             "skip_tokenizer_init": self.config.skip_tokenizer_init,
             "skip_server_warmup": True,
             "quantization": quantization,

@@ -538,6 +538,12 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         self.gen_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.torch_random_states)
 
+        # DEBUG
+        dp_rank = rollout_device_mesh["dp"].get_local_rank()
+        infer_tp_rank = rollout_device_mesh["infer_tp"].get_local_rank()
+        infer_pp_rank = rollout_device_mesh["infer_pp"].get_local_rank()
+        logger.warning(f"_build_rollout dp_rank: {dp_rank}, infer_tp_rank: {infer_tp_rank}, infer_pp_rank: {infer_pp_rank}")
+
         # 4. build rollout model
         log_gpu_memory_usage(f"Before building {self.config.rollout.name} rollout", logger=logger)
         self.rollout = get_rollout_class(rollout_config.name, rollout_config.mode)(
@@ -835,10 +841,13 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         if self._is_actor:  # For rollout only, we do not switch context.
             loop = get_event_loop()
             loop.run_until_complete(self.rollout_mode())
+            logger.warning(f"Rank: {self.rank}, FINISH Switch to rollout mode...")
             log_gpu_memory_usage("After switch to rollout mode", logger=logger)
 
         with simple_timer("generate_sequences", timing_generate):
             output = self.rollout.generate_sequences(prompts=prompts)
+
+        logger.warning(f"ActorRolloutRefWorker generate_sequences finish, Try to switch to trainer_mode")
 
         if self._is_actor:
             loop.run_until_complete(self.trainer_mode())

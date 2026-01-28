@@ -48,7 +48,8 @@ def get_torch_profiler(
     if not contents or "cpu" in contents:
         activities.append(torch.profiler.ProfilerActivity.CPU)
     if not contents or "cuda" in contents:
-        activities.append(torch.profiler.ProfilerActivity.CUDA)
+        # activities.append(torch.profiler.ProfilerActivity.CUDA)
+        activities.append(torch.profiler.ProfilerActivity.MUSA)
 
     return torch.profiler.profile(
         activities=activities,

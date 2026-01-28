@@ -66,6 +66,8 @@ from verl.utils.tracking import ValidationGenerationsLogger
 from verl.workers.config import FSDPEngineConfig
 from verl.workers.utils.padding import left_right_2_no_padding, no_padding_2_padding
 
+import os, logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ResourcePoolManager:
@@ -108,8 +110,9 @@ class ResourcePoolManager:
     def _check_resource_available(self):
         """Check if the resource pool can be satisfied in this ray cluster."""
         node_available_resources = ray._private.state.available_resources_per_node()
+        logger.warning('check available resources', node_available_resources)
         node_available_gpus = {
-            node: node_info.get("GPU", 0) if "GPU" in node_info else node_info.get("NPU", 0)
+            node: node_info.get("GPU", 8) if "GPU" in node_info else node_info.get("NPU", 8) # ATTN GPU Num
             for node, node_info in node_available_resources.items()
         }
 
@@ -347,6 +350,7 @@ class RayPPOTrainer:
         self.use_critic = need_critic(self.config)
         self.ray_worker_group_cls = ray_worker_group_cls
         self.device_name = device_name if device_name else self.config.trainer.device
+        logger.warning(f"RayPPOTrainer device_name: {self.device_name}") # DEBUG musa
         self.validation_generations_logger = ValidationGenerationsLogger(
             project_name=self.config.trainer.project_name,
             experiment_name=self.config.trainer.experiment_name,
@@ -796,6 +800,11 @@ class RayPPOTrainer:
 
         self.resource_pool_to_cls = {pool: {} for pool in self.resource_pool_manager.resource_pool_dict.values()}
 
+        logger.warning(f"self.hybrid_engine: {self.hybrid_engine}, \
+              self.use_critic:{self.use_critic}, \
+                self.use_reference_policy:{self.use_reference_policy}\
+                    self.use_rm: {self.use_rm}")
+
         # create actor and rollout
         actor_role = Role.ActorRolloutRef if Role.ActorRolloutRef in self.role_worker_mapping else Role.ActorRollout
         if self.hybrid_engine:
@@ -1102,6 +1111,7 @@ class RayPPOTrainer:
     def _start_profiling(self, do_profile: bool) -> None:
         """Start profiling for all worker groups if profiling is enabled."""
         if do_profile:
+            logger.warning(f"=========== RayPPOTrainer _start_profiling ===========")
             self.actor_rollout_wg.start_profile(role="e2e", profile_step=self.global_steps)
             if self.use_reference_policy:
                 self.ref_policy_wg.start_profile(profile_step=self.global_steps)
@@ -1113,6 +1123,7 @@ class RayPPOTrainer:
     def _stop_profiling(self, do_profile: bool) -> None:
         """Stop profiling for all worker groups if profiling is enabled."""
         if do_profile:
+            logger.warning(f"=========== RayPPOTrainer _stop_profiling ===========")
             self.actor_rollout_wg.stop_profile()
             if self.use_reference_policy:
                 self.ref_policy_wg.stop_profile()
@@ -1436,6 +1447,7 @@ class RayPPOTrainer:
                     with marked_timer("gen", timing_raw, color="red"):
                         if not self.async_rollout_mode:
                             gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch_output)
+                            print(f"self.actor_rollout_wg.generate_sequences finish!")
                         else:
                             if curr_step_profile:
                                 self.async_rollout_manager.start_profile()

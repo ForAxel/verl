@@ -29,7 +29,7 @@ def save_dist_checkpointing(sharded_state_dict, ckpt_path, async_save=False):
     # Get checkpointing strategies
     save_strategy = get_default_save_sharded_strategy("torch_dist")
     save_strategy = FullyParallelSaveStrategyWrapper(
-        save_strategy, mpu.get_data_parallel_group(with_context_parallel=True)
+        save_strategy, mpu.get_data_parallel_group(with_context_parallel=False)
     )
 
     # Save model sharded state dicts

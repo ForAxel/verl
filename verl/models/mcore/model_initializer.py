@@ -82,7 +82,7 @@ class BaseModelInitializer(ABC):
             position_embedding_type="rope",
             rotary_base=self.hf_config.rope_theta,
             **rope_scaling_args,
-            mtp_block_spec=mtp_block_spec,
+            # mtp_block_spec=mtp_block_spec,
             **({} if not self.has_vp_stage else {"vp_stage": vp_stage}),
         )
 
@@ -194,6 +194,43 @@ class DeepseekV3Model(BaseModelInitializer):
                 self.tfconfig, transformer_layer_spec, use_transformer_engine=True, vp_stage=vp_stage
             )
             kwargs["mtp_block_spec"] = mtp_block_spec
+
+        model = super().initialize(**kwargs)
+        if freeze_moe_router:
+            for layer in model.decoder.layers:
+                if hasattr(layer.mlp, "router"):
+                    layer.mlp.router.weight.requires_grad = False
+        return model
+
+
+class DeepseekV2Model(BaseModelInitializer):
+    """Initializer for DeepseekV2 models."""
+
+    def get_transformer_layer_spec(self, vp_stage=None):
+        extra_kwargs = {} if not self.has_vp_stage else {"vp_stage": vp_stage}
+        transformer_layer_spec = get_gpt_decoder_block_spec(self.tfconfig, use_transformer_engine=True, **extra_kwargs)
+        return transformer_layer_spec
+
+    def get_rope_scaling_args(self) -> dict:
+        """Get rope scaling args."""
+        rope_scaling_args = {}
+        return rope_scaling_args
+
+    def initialize(
+        self,
+        **kwargs,
+    ):
+        vp_stage = kwargs.get("vp_stage", None)
+        freeze_moe_router = kwargs.get("freeze_moe_router", True)
+        if freeze_moe_router:
+            self.tfconfig.moe_router_load_balancing_type = "none"
+        # MTP
+        # if self.tfconfig.mtp_num_layers is not None and self.tfconfig.mtp_num_layers > 0:
+        #     transformer_layer_spec = self.get_transformer_layer_spec(vp_stage=vp_stage)
+        #     mtp_block_spec = get_gpt_mtp_block_spec(
+        #         self.tfconfig, transformer_layer_spec, use_transformer_engine=True, vp_stage=vp_stage
+        #     )
+        #     kwargs["mtp_block_spec"] = mtp_block_spec
 
         model = super().initialize(**kwargs)
         if freeze_moe_router:

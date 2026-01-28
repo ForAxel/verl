@@ -81,6 +81,9 @@ def get_device_flops(unit="T", device_name=None):
         if key in device_name:
             flops = value
             break
+    else: # 适配 MUSA 硬件
+        if '5000' in device_name or '10000' in device_name:
+            flops = 458e12
     flops_unit = unit_convert(flops, unit)
     return flops_unit
 
@@ -555,6 +558,7 @@ ESTIMATE_FUNC = {
     "glm4v": _estimate_qwen2_flops,
     "gpt_oss": _estimate_gpt_oss_flops,
     "mimo": _estimate_qwen2_flops,
+    "deepseek_v2": _estimate_deepseek_v3_flops, # TODO 暂时用 V3 来当V2
 }
 
 

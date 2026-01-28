@@ -702,6 +702,7 @@ class MegatronPPOActor(BasePPOActor):
 
         # TODO: we may use the new schedule instead
         # for flash-attn: (seq_len, batch_size, hidden_size) = (mbs*seq_len, 1, hidden_size)
+        # self.actor_module[0] = self.actor_module[0].musa() # TODO 待优化
         if mpu.get_pipeline_model_parallel_world_size() > 1:
             losses_reduced = forward_backward_func(
                 forward_step_func=forward_step,
