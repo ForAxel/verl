@@ -172,6 +172,8 @@ class SGLangHttpServer:
             else f"{self._master_address}:{self._master_port}"
         )
         infer_tp = self.config.tensor_model_parallel_size * self.config.data_parallel_size
+
+        backend = "triton"
         args = {
             "model_path": self.model_config.local_path,
             "dtype": self.config.dtype,
@@ -190,8 +192,8 @@ class SGLangHttpServer:
             "trust_remote_code": self.model_config.trust_remote_code,
             "max_running_requests": self.config.get("max_num_seqs", None),
             "log_level": "info",
-            "mm_attention_backend": "triton", # "fa3",
-            "attention_backend": "triton", #attention_backend if attention_backend is not None else "fa3",
+            "mm_attention_backend": backend, # "fa3",
+            "attention_backend": backend, #attention_backend if attention_backend is not None else "fa3",
             "skip_tokenizer_init": self.config.skip_tokenizer_init,
             "skip_server_warmup": True,
             "quantization": quantization,
