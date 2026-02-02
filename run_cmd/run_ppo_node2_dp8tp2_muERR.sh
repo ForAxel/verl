@@ -100,4 +100,4 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/newVerl/run_ppo_node2_dp8tp2.log
+    2>&1 | tee ../logs/newVerl/run_ppo_node2_dp8tp2_muERR_bug.log

@@ -180,12 +180,14 @@ class ServerAdapter(BaseRollout):
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._init_server_adapter()
             await self._engine.resume_memory_occupation(tags=tags)
+            # torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
     async def release(self):
         """Release weights and kv cache in GPU memory."""
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._init_server_adapter()
             await self._engine.release_memory_occupation(tags=["kv_cache", "weights"])
+            # torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
     async def update_weights(self, weights: Generator[tuple[str, torch.Tensor], None, None], **kwargs):
         """

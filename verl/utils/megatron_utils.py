@@ -156,7 +156,7 @@ def get_model(
         # # Broadcast params from data parallel src rank to other data parallel ranks.
         # # if args.data_parallel_random_init:
         for model_module in model:
-            model_module.broadcast_params()
+            model_module.broadcast_params() # ATTN 报错
     return model
 
 

@@ -173,7 +173,7 @@ class SGLangHttpServer:
         )
         infer_tp = self.config.tensor_model_parallel_size * self.config.data_parallel_size
 
-        backend = "triton"
+        backend = "triton" # fa3 triton
         args = {
             "model_path": self.model_config.local_path,
             "dtype": self.config.dtype,
@@ -202,6 +202,11 @@ class SGLangHttpServer:
             else json.dumps({}),
             **engine_kwargs,
         }
+
+        args["disable_overlap_schedule"] = True # ATTN 禁用 overlap
+        # base_gpu_id = int(os.environ.get('RANK',0))
+        # args['base_gpu_id'] = base_gpu_id
+        # logger.warning(f"launch_server node_rank: {self.node_rank}, get base_gpu_id: {base_gpu_id}") # DEBUG
 
         if self.config.prometheus.enable:
             if self.config.prometheus.served_model_name:
@@ -254,6 +259,7 @@ class SGLangHttpServer:
                 run_detokenizer_process_func=sglang.srt.entrypoints.engine.run_detokenizer_process,
             )
         else:
+            logger.warning(f"SGLang version: {version.parse(sglang.__version__)}, run sglang _launch_subprocesses")
             self.tokenizer_manager, self.template_manager, self.scheduler_info, *_ = _launch_subprocesses(
                 server_args=server_args
             )
@@ -362,6 +368,9 @@ class SGLangHttpServer:
         generate_request = GenerateReqInput(**request)
 
         output = await self.tokenizer_manager.generate_request(generate_request, None).__anext__()
+
+        logger.warning(f"SGLangHttpServer generate FUNC, tokenizer_manager.generate_request FINISH!") # DEBUG
+
         if return_logprob:
             output_token_logprobs = output["meta_info"]["output_token_logprobs"]
             log_probs, token_ids = zip(

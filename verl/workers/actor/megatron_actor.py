@@ -180,7 +180,7 @@ class MegatronPPOActor(BasePPOActor):
             self.mini_layer_topk_idx_list = []
 
         config = get_model_config(self.actor_module[0])
-        print(config)
+        print(f"MegatronPPOActor __init__ config: {config}")
         config.finalize_model_grads_func = finalize_model_grads
 
     def _validate_config(self, config) -> None:
