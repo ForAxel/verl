@@ -99,20 +99,21 @@ def run_ppo(config, task_runner_class=None) -> None:
         # NCCL debug level, VLLM logging level, and allow runtime LoRA updating
         # `num_cpus` specifies the number of CPU cores Ray can use, obtained from the configuration
         
-        # default_runtime_env = get_ppo_ray_runtime_env()
-        # ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
-        # runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
+        default_runtime_env = get_ppo_ray_runtime_env()
+        ray_init_kwargs = config.ray_kwargs.get("ray_init", {})
+        runtime_env_kwargs = ray_init_kwargs.get("runtime_env", {})
 
-        # if config.transfer_queue.enable:
-        #     # Add runtime environment variables for transfer queue
-        #     runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
-        #     runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
-        #     runtime_env_kwargs["env_vars"] = runtime_env_vars
+        if config.transfer_queue.enable:
+            # Add runtime environment variables for transfer queue
+            runtime_env_vars = runtime_env_kwargs.get("env_vars", {})
+            runtime_env_vars["TRANSFER_QUEUE_ENABLE"] = "1"
+            runtime_env_kwargs["env_vars"] = runtime_env_vars
 
-        # runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
-        # ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
-        # print(f"ray init kwargs: {ray_init_kwargs}")
-        # ray.init(**OmegaConf.to_container(ray_init_kwargs))
+        runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
+        ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
+        ray_init_kwargs.pop('num_cpus')
+        print(f"ray init kwargs: {ray_init_kwargs}")
+        ray.init(**OmegaConf.to_container(ray_init_kwargs))
 
         # print('ray init')
         # ray.init(
@@ -121,16 +122,16 @@ def run_ppo(config, task_runner_class=None) -> None:
         #     # num_gpus=8
         # )
 
-        sys_runtime_env = get_ray_env_from_file()
+    #     sys_runtime_env = get_ray_env_from_file()
         
-        ray.init(
-            runtime_env=sys_runtime_env,
-            logging_level=logging.DEBUG,
-        )
+    #     ray.init(
+    #         runtime_env=sys_runtime_env,
+    #         logging_level=logging.DEBUG,
+    #     )
 
-    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
-    musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
-    logger.warning(f"AFTER init Ray, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
+    # cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    # musa_visible_devices = os.getenv("MUSA_VISIBLE_DEVICES", None)
+    # logger.warning(f"AFTER init Ray, cuda_visible_devices: {cuda_visible_devices}, musa_visible_devices: {musa_visible_devices}")
     
 
     if task_runner_class is None:

@@ -55,6 +55,9 @@ class Profiler:
         self.tool_config = tool_config
         self.rank = torch.distributed.get_rank()
         # we need to validate the config before using the profiler
+        #self.tool_config.step_start = 0
+        #self.tool_config.step_end = 3
+        self.config.profile_ranks = [0,1,2,3]
         self._validate()
         if self.rank in self.config.profile_ranks:
             print(f"[Profiler] Profiler init for rank {self.rank}")
@@ -106,8 +109,8 @@ class Profiler:
     def save(self):
         if self.prof is not None and not self.saved:
             if not os.path.exists(self.config.save_path):
-                os.makedirs(self.config.save_path)
-            save_file_name = f"/prof_start_{self.config.step_start}_end_{self.config.step_end}_rank_{self.rank}.json"
+                os.makedirs(self.config.save_path,exist_ok=True)
+            save_file_name = f"/prof_start_{self.tool_config.step_start}_end_{self.tool_config.step_end}_rank_{self.rank}.json"
             print(f"[Profiler] Saving trace to {self.config.save_path + save_file_name}")
             self.prof.export_chrome_trace(self.config.save_path + save_file_name)
             self.enable = False

@@ -111,10 +111,10 @@ trainer:
 
 global_profiler:
   _target_: verl.utils.profiler.ProfilerConfig
-  tool: null  # choose between nsys, npu, torch
+  tool: torch  # choose between nsys, npu, torch
   steps: null   # profile steps
   profile_continuous_steps: False
-  save_path: "outputs/profile"   # profiler saving path
+  save_path: "/home/verl/run_cmd/outputs/profile"   # profiler saving path
   # Specific tool configs, can use +profiler.tool_config.[tool].xxx to config
   global_tool_config:
   

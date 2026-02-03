@@ -41,6 +41,7 @@ test_files=$DATASET_PATH/math_test.parquet
 
 # 需要指定到 Verl 中对应config路径
 CONFIG_PATH=$VERL_PATH/verl/trainer/config
+CONFIG_PATH=$VERL_PATH/verl/trainer/config
 
 
 # # 解决保存问题

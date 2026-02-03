@@ -31,7 +31,7 @@ except ImportError:
     pass
 
 import sys
-sys.path.insert(0, "/home/dist/zhaoping/Code/musa_patch/Megatron-LM")
+sys.path.insert(0, "/home/Megatron-LM")
 
 from accelerate import init_empty_weights
 from megatron.core import dist_checkpointing
@@ -658,7 +658,8 @@ if __name__ == "__main__":
         import os
         import sys
         if os.getenv("ACCELERATOR_BACKEND", "musa") == "musa":
-            musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/dist/zhaoping/Code/verl-musa-patch')
+            # musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/verl-musa-patch')
+            musa_patch_path = os.getenv('MUSA_PATCH_PATH','/home/megatron-lm-musa-patch')
             sys.path.append(musa_patch_path)
             import musa_patch    
             print(f"\n ====== import musa patch successfully ======\n")

@@ -354,6 +354,7 @@ class MegatronPPOActor(BasePPOActor):
         data.to(get_device_id())
         data.batch = data.batch.contiguous()
         mini_batch = data
+        att_ori = mini_batch.batch["attention_mask"].clone()
         broadcast_dict_tensor(
             mini_batch.batch,
             src=mpu.get_pipeline_model_parallel_last_rank(),
@@ -361,7 +362,11 @@ class MegatronPPOActor(BasePPOActor):
         )
         mini_batch.to("cpu")
         # split into micro-batches
-        mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
+        #mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
+        
+        rank = torch.distributed.get_rank()
+        p = '/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs/rank-{}.pt'.format(rank)
+        torch.save([mini_batch.batch["input_ids"],mini_batch.batch["attention_mask"],att_ori],p)
         self.has_multi_modal_inputs = "multi_modal_inputs" in mini_batch.non_tensor_batch.keys()
         if self.has_multi_modal_inputs:
             mini_batch.batch["multi_modal_inputs"] = mini_batch.non_tensor_batch["multi_modal_inputs"]
@@ -402,7 +407,7 @@ class MegatronPPOActor(BasePPOActor):
             total_seqlen = micro_batch_size * seq_len
         # compute input shapes for pp stages
         n_micro_batch = len(micro_batches)
-
+        print(f'n_micro_batch:++ {n_micro_batch}')
         forward_backward_func = get_forward_backward_func()
 
         def loss_func(output, data, meta_info):
@@ -548,6 +553,7 @@ class MegatronPPOActor(BasePPOActor):
                             "The current `clone()` operation ensures correctness but increases memory usage."
                         )
                         entropy = vocab_parallel_entropy(logits)
+                        
                         ret["entropy"] = entropy
                     else:
                         logits_bak = logits
@@ -632,6 +638,7 @@ class MegatronPPOActor(BasePPOActor):
         metrics = {}
         if self.use_torch_profiler and self.prof and self.prof.enable:
             self.prof.start()
+        #print(f'len(dataloader)+++: {len(dataloader)}')
         for data in dataloader:
             self.actor_optimizer.zero_grad()
             # use use_contiguous_buffers_in_local_ddp and no overlap_dp_param_comm

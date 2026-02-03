@@ -1187,6 +1187,9 @@ class RayPPOTrainer:
                     # repeat to align with repeated responses in rollout
                     batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     batch = batch.union(gen_batch_output)
+                    
+                    #batch = torch.load('/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs_0121/gen_batch_32k_thinking_infer_dp256.pt',weights_only=False)
+                    #torch.save(batch,'/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs_0121/gen_batch_32k_thinking_infer_dp256.pt')
 
                     if "response_mask" not in batch.batch.keys():
                         batch.batch["response_mask"] = compute_response_mask(batch)

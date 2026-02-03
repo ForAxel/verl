@@ -179,6 +179,8 @@ def hf_to_mcore_config_dense(
     )
     # override_transformer_config_kwargs as kwargs shall never be none
     args.update(override_transformer_config_kwargs)
+    print(f'args++: {args}')
+    print(f"TransformerConfig++: {dir(TransformerConfig)}")
     return check_and_construct_configs(args, TransformerConfig)
 
 
