@@ -4,10 +4,10 @@
 set -x
 
 # 直接使用下载的模型参数和mcore参数
-HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B'
-DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B-mcore'
-# HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-8B'
-# DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-Base-mcore'
+# HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B'
+# DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-1.7B-mcore'
+HF_MODEL_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-8B'
+DIST_CKPT_PATH='/mnt/seed17/001688/shenyichong/models/Qwen3-Base-mcore'
 
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 # export MUSA_VISIBLE_DEVICES='7'
@@ -59,18 +59,18 @@ python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=4 \
+    data.train_batch_size=64 \
     data.max_prompt_length=512 \
-    data.max_response_length=32 \
+    data.max_response_length=1024 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
     actor_rollout_ref.model.path=$HF_MODEL_PATH \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=2 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=False \
     actor_rollout_ref.actor.use_kl_loss=True \
@@ -80,8 +80,8 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=sglang \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
-    actor_rollout_ref.rollout.n=2 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
+    actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
     actor_rollout_ref.rollout.top_p=0.95 \
@@ -99,10 +99,10 @@ python3 -m verl.trainer.main_ppo \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
     trainer.experiment_name='Qwen3_1.7b_megatron_sglang' \
-    trainer.n_gpus_per_node=1 \
+    trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
-    trainer.save_freq=2 \
-    trainer.test_freq=4 \
+    trainer.save_freq=5 \
+    trainer.test_freq=5 \
     trainer.total_epochs=10 $@ \
     2>&1 | tee ../logs/run_ppo_demo.log
