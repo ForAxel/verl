@@ -438,7 +438,8 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
 
         Args:
             trust_remote_code (bool, optional): _description_. Defaults to False.
-        """        
+        """      
+        #return  
         from torch.distributed.device_mesh import init_device_mesh
 
         # 1. parse rollout and huggingface model config
@@ -654,28 +655,44 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         # important: need to manually set the random states of each tp to be identical.
         self.torch_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.gen_random_states)
-
     async def trainer_mode(self):
+        
+        def save_log(tag):
+            from datetime import datetime
+            import os
+            rank = torch.distributed.get_rank()
+            p = '/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs_0121/rank_{}.log'.format(rank)
+            with open(p,'a+') as f:
+                tag = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]: pid = {os.getpid()}, {tag} \n" 
+                f.write(tag)
+            f.close()
         """Context switch hybridengine to trainer mode."""
+        save_log('in line 670')
         if self.config.rollout.free_cache_engine:
             log_gpu_memory_usage("Before rollout offload", logger=logger)
+            save_log('in line 673')
             await self.rollout.release()
             log_gpu_memory_usage("After rollout offload", logger=logger)
+            save_log('in line 676')
 
         for model in self.actor.actor_module:
             model.train()
         # add empty cache after each compute
+        save_log('in line 681')
         aggressive_empty_cache(force_sync=True)
+        save_log('in line 682')
 
         # FIXME(@wuxibin): megatron+sglang failed with `expandable_segments:True` in ci,
         # can't reproduce it in dev environment, temporary disable it.
         # https://github.com/volcengine/verl/actions/runs/17382936845/job/49344264323?pr=3285
         if os.environ.get("MEGATRON_CI_DISABLE_EXPANDABLE_SEGMENTS", "0") == "0":
             set_expandable_segments(True)
-
+        
+        save_log('in line 691')
         # restore random states
         self.gen_random_states = get_torch_device().get_rng_state()
         get_torch_device().set_rng_state(self.torch_random_states)
+        save_log('in line 695')
         logger.warning(f"trainer_mode func finish")
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="actor"))
@@ -754,13 +771,13 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             print(f"Rank: {self.rank}, FINISH loop {loop}")
 
         with simple_timer("generate_sequences", timing_generate):
-            # 调用 SGLangRollout 类的 generate_sequences 方法
+
             output = self.rollout.generate_sequences(prompts=prompts)
 
         if self._is_actor:
             loop.run_until_complete(self.trainer_mode())
             log_gpu_memory_usage("After switch to trainer mode", logger=logger)
-
+        
         # We calculate the average timing across all ranks
         # to make sure meta_info["timing"] is the same
         timing_generate_topk_ratio, timing_generate_min, timing_generate_max = topk_reduce_ratio_min_max(

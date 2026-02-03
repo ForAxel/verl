@@ -4,8 +4,8 @@
 set -x
 
 # 直接使用下载的模型参数和mcore参数
-HF_MODEL_PATH='/home/dist/zhaoping/LLMs/Qwen3-1.7B'
-DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
+HF_MODEL_PATH='/mnt/seed17/001688/zhaoping/LLMs/Qwen3-1.7B'
+DIST_CKPT_PATH='/mnt/seed17/001688/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
 
 # export MUSA_VISIBLE_DEVICES='0,1'
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
@@ -26,18 +26,18 @@ export VERL_LOGGING_LEVEL=INFO #INFO
 export HYDRA_FULL_ERROR=1
 #export MUSA_USERQ=1
 
-# export MUSA_PATCH_PATH=/home/dist/zhaoping/Code/verl-musa-patch
-export MEGATRON_PATH=/home/dist/zhaoping/Code/musa_patch/Megatron-LM
-export VERL_PATH=/home/dist/zhaoping/Code/verl-musa-patch/verl
+# export MUSA_PATCH_PATH=/mnt/seed17/001688/zhaoping/Code/verl-musa-patch
+export MEGATRON_PATH=/home/Megatron-LM
+export VERL_PATH=/home/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
 
 
-DATASET_PATH="/home/dist/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
+DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
 train_files=$DATASET_PATH/math_train.parquet
 test_files=$DATASET_PATH/math_test.parquet
 
 # 需要指定到 Verl 中对应config路径
-CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
+CONFIG_PATH=$VERL_PATH/verl/trainer/config
 
 
 # # 解决保存问题
@@ -49,7 +49,7 @@ env PYTHONPATH="$PYTHONPATH" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
-    RAY_ADDRESS="10.18.32.9:65379" \
+    RAY_ADDRESS="localhost:65379" \
 python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
@@ -79,7 +79,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
-    actor_rollout_ref.rollout.n=3 \
+    actor_rollout_ref.rollout.n=8 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
     actor_rollout_ref.rollout.top_p=0.95 \
@@ -102,5 +102,6 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.nnodes=1 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
+    trainer.device='musa' \
     trainer.total_epochs=10 $@ \
     2>&1 | tee ../logs/run_ppo_dp2tp2.log

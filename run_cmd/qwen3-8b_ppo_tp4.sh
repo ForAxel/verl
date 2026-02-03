@@ -4,8 +4,8 @@
 set -x
 
 # 直接使用下载的模型参数和mcore参数
-HF_MODEL_PATH='/mnt/seed17/001688/zhaoping/LLMs/Qwen3-1.7B'
-DIST_CKPT_PATH='/mnt/seed17/001688/zhaoping/LLMs/MCORE/Qwen3-1.7B-mcore'
+HF_MODEL_PATH='/mnt/seed17/001688/zhaoping/LLMs/Qwen3-8B'
+DIST_CKPT_PATH='/mnt/seed17/001688/zhaoping/LLMs/MCORE/Qwen3-8B'
 
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
 # export MUSA_VISIBLE_DEVICES='7'
@@ -87,7 +87,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.ppo_mini_batch_size=2 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=2 \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -96,7 +96,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.tensor_model_parallel_size=2 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=4 \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.7 \
     actor_rollout_ref.rollout.n=2 \
@@ -108,7 +108,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=2 \
+    actor_rollout_ref.ref.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.ref.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
@@ -117,8 +117,8 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
-    trainer.experiment_name='Qwen3_1.7b_megatron_sglang' \
-    trainer.n_gpus_per_node=2 \
+    trainer.experiment_name='Qwen3_8b_megatron_sglang' \
+    trainer.n_gpus_per_node=4 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
     trainer.save_freq=100 \
@@ -126,4 +126,4 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.total_epochs=10 \
     data.dataloader_num_workers=0 \
     actor_rollout_ref.rollout.agent.num_workers=0 $@ \
-    2>&1 | tee ../logs/run_ppo_tp2.log
+    2>&1 | tee ../logs/qwen3_8b_ppo_tp4.log

@@ -149,7 +149,7 @@ profiler:
   all_ranks: False
 
   # The ranks that will be profiled. [] or [0,1,...]
-  ranks: []
+  ranks: [0,1,2,3]
 
   # profile results saving path
   save_path: ${oc.select:global_profiler.save_path,null}
@@ -197,7 +197,7 @@ profiler:
       step_start: 0
 
       # stop profile mini-batch in training
-      step_end: null
+      step_end: 3
 
     # torch memory profiler config
     torch_memory:

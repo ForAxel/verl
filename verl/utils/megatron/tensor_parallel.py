@@ -106,6 +106,46 @@ def get_tensor_parallel_partition_stride(param):
     return param.partition_stride
 
 
+
+def chunked_vocab_parallel_entropy(
+    logits: torch.Tensor,          # [B, S, V//tp]
+    block_size: int = 1024,        # 在 seq 维切块
+) -> torch.Tensor:                 # [B, S]
+    """
+    3-D 分块计算 entropy，不保留中间激活
+    """
+    B, S, V_tp = logits.shape
+    entropy = logits.new_empty(B, S)          # 结果预分配
+
+    with torch.no_grad():
+        for start in range(0, S, block_size):
+            end = min(start + block_size, S)
+            blk = logits[:, start:end, :]      # [B, chunk, V//tp]
+
+            # 与原 _VocabParallelEntropy 完全一致，仅作用在块上
+            logits_max = blk.max(dim=-1, keepdim=True).values
+            torch.distributed.all_reduce(
+                logits_max, op=torch.distributed.ReduceOp.MAX,
+                group=mpu.get_tensor_model_parallel_group()
+            )
+            norm_logits = blk - logits_max
+            norm_exp = norm_logits.exp_()
+            sum_exp = norm_exp.sum(dim=-1, keepdim=True)
+            torch.distributed.all_reduce(
+                sum_exp, group=mpu.get_tensor_model_parallel_group()
+            )
+            softmax = norm_exp.div_(sum_exp)
+            sum_soft_logits = (softmax * blk).sum(dim=-1, keepdim=True)
+            torch.distributed.all_reduce(
+                sum_soft_logits, group=mpu.get_tensor_model_parallel_group()
+            )
+            ent = logits_max.squeeze(-1) + sum_exp.log().squeeze(-1) - sum_soft_logits.squeeze(-1)
+            entropy[:, start:end] = ent
+
+            del blk, logits_max, norm_logits, norm_exp, sum_exp, softmax, sum_soft_logits
+
+    return entropy
+
 class _VocabParallelEntropy(torch.autograd.Function):
     @staticmethod
     def forward(ctx, vocab_parallel_logits: torch.Tensor) -> torch.Tensor:
@@ -148,14 +188,63 @@ def vocab_parallel_entropy(vocab_parallel_logits: torch.Tensor) -> torch.Tensor:
     Returns: (total_nnz,)
 
     """
+    #if not vocab_parallel_logits.requires_grad:
+    #    return chunked_vocab_parallel_entropy(vocab_parallel_logits, block_size=8192)
     return _VocabParallelEntropy.apply(vocab_parallel_logits)
 
+from megatron.core import tensor_parallel
+try:
+    from megatron.core.extensions.transformer_engine import te_parallel_cross_entropy
+    print('import te_parallel_cross_entropy success',te_parallel_cross_entropy)
+except:
+    te_parallel_cross_entropy = None
+        
+def chunked_te_parallel_log_probs_from_logits(
+    logits: torch.Tensor,          # [B, S, V//tp]
+    labels: torch.Tensor,          # [B, S]
+    block_size: int = 1024,
+) -> torch.Tensor:                 # [B, S]
+    if te_parallel_cross_entropy is None:
+        raise RuntimeError("TransformerEngine parallel cross entropy not available.")
+
+    B, S, V_tp = logits.shape
+    assert labels.shape == (B, S)
+    log_probs = logits.new_empty(B, S)
+
+    # 1. TE 需要 labels 是 "contiguous + stride=1" 格式
+    labels = torch.as_strided(labels, (B, S), (S, 1))
+
+    with torch.no_grad():
+        for start in range(0, S, block_size):
+            end = min(start + block_size, S)
+            blk_logits = logits[:, start:end, :]   # [B, chunk, V//tp]
+            blk_labels = labels[:, start:end]      # [B, chunk]
+
+            # 2. 直接 3-D 调用 TE
+            blk_loss = te_parallel_cross_entropy(
+                blk_logits, blk_labels, mpu.get_tensor_model_parallel_group()
+            )                                       # [B, chunk]
+            log_probs[:, start:end] = -blk_loss
+
+            del blk_logits, blk_labels, blk_loss
+
+    return log_probs
 
 def vocab_parallel_log_probs_from_logits(logits, labels):
     """TODO(zhangchi.usc1992): We may change the implementation later"""
-    from megatron.core import tensor_parallel
-
-    return -tensor_parallel.vocab_parallel_cross_entropy(vocab_parallel_logits=logits, target=labels)
+        
+    #if not logits.requires_grad and te_parallel_cross_entropy is not None:
+    #    return chunked_te_parallel_log_probs_from_logits(logits, labels, block_size=4096)
+    #te_parallel_cross_entropy = None
+    if te_parallel_cross_entropy is not None:
+        #print('use te_parallel_cross_entropy')
+        labels = torch.as_strided(labels, labels.size(), (labels.size()[1], 1))
+        loss = te_parallel_cross_entropy(
+            logits, labels, mpu.get_tensor_model_parallel_group()
+        )
+        return -loss              
+    else:
+        return -tensor_parallel.vocab_parallel_cross_entropy(vocab_parallel_logits=logits, target=labels)
 
 
 def vocab_parallel_log_probs_from_logits_response_rmpad(input_ids, attention_mask, logits_rmpad, response_length):

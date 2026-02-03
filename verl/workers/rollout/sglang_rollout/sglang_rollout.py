@@ -157,6 +157,7 @@ class AsyncEngine(sglang.srt.entrypoints.engine.Engine):
             obj = ReleaseMemoryOccupationReqInput()
         else:
             obj = ReleaseMemoryOccupationReqInput(tags=tags)
+        logger.warning(f'rank-{torch.distributed.get_rank()} pid={os.getpid()} release_memory_occupation in engine')
         return await self.tokenizer_manager.release_memory_occupation(obj, None)
 
     async def resume_memory_occupation(self, tags: Optional[list[str]] = None):
@@ -165,6 +166,7 @@ class AsyncEngine(sglang.srt.entrypoints.engine.Engine):
             obj = ResumeMemoryOccupationReqInput()
         else:
             obj = ResumeMemoryOccupationReqInput(tags=tags)
+        logger.warning(f'rank-{torch.distributed.get_rank()} pid={os.getpid()} resume_memory_occupation in engine')
         return await self.tokenizer_manager.resume_memory_occupation(obj, None)
 
     # 训练结束后更新模型权重
@@ -322,6 +324,9 @@ class SGLangRollout(BaseRollout):
         )
 
         self._init_distributed_env(device_mesh_cpu=None, **kwargs) # ATTN 初始化分布式环境，需要检查
+        
+        
+        
 
         self._verify_config(model_hf_config=model_hf_config) # 验证模型配置
         # initialize the inference engine
@@ -379,13 +384,30 @@ class SGLangRollout(BaseRollout):
 
         self._rank = self._device_mesh_cpu.get_rank()
         self._tp_rank = self._device_mesh_cpu["tp"].get_local_rank()
+        logger.warning(f"_init_distributed_env: :tp_world: {tp_size}, global_world: {world_size}, self._rank:{self._rank}, self._tp_rank:{self._tp_rank}")
+        from .utils import init_process_group
+        
+        #self.gloo_group_for_barrier = torch.distributed.init_process_group(rank=self._tp_rank,world_size=tp_size,backend='gloo',group_name = '')
+        
+        master_address = '127.0.0.1'
+        master_port = 1598 +  self._rank - self._rank % tp_size
+        from datetime import timedelta
+        timeout = timedelta(seconds=3000)
+        self.gloo_group_for_barrier = init_process_group(
+                    backend='gloo',
+                    timeout=timeout,
+                    init_method=f"tcp://{master_address}:{master_port}",
+                    world_size=tp_size,
+                    rank=self._tp_rank,
+                    group_name='gloo_group_for_barrier',
+                )
         self._tp_size = self._device_mesh_cpu["tp"].size()
         if self._rank == 0:
             logger.info(f"_init_distributed_env: :tp_world: {self._tp_size}, global_world: {world_size}")
         # get tp_rank of this process in this tp group
         visible_devices = [None] * self._device_mesh_cpu.size(1)
         devices_keyword = get_visible_devices_keyword() # MUSA_VISIBLE_DEVICES
-
+        print(f'+++: {os.environ["RANK"]} {self.train_tp} {world_size} {tp_size} {self._device_mesh_cpu.get_group("tp")}')
         torch.distributed.all_gather_object(
             visible_devices, os.environ[devices_keyword], self._device_mesh_cpu.get_group("tp")
         ) # 这里通过ray配置 MUSA_VISIBLE_DEVICES 来决定后续可以使用哪些卡
@@ -393,19 +415,6 @@ class SGLangRollout(BaseRollout):
         # ATTN 设置 MUSA_VISIBLE_DEVICES 环境变量
         os.environ[devices_keyword] = ",".join(sorted(list(self.visible_devices_set), key=int))
         
-        # # DEBUG
-        # logger.warning(f"SGLangRollout RAW visible_devices is: {visible_devices}") # [None, None]
-        # logger.warning(f"SGLangRollout RAW os.environ[devices_keyword] is: {os.environ[devices_keyword]}") # 0~7
-        # logger.warning(f"SGLangRollout self._device_mesh_cpu: {self._device_mesh_cpu}") # None
-        # logger.warning(f"SGLangRollout devices_keyword is: {devices_keyword}")
-        # logger.warning(f"self._device_mesh_cpu.get_group('tp'): {self._device_mesh_cpu.get_group('tp')}")
-        # logger.warning(f"self.tensor_parallel_size: {self.tensor_parallel_size}") # 2
-        # logger.warning(f"self._rank: {self._rank}")
-        # logger.warning(f"self._tp_rank: {self._tp_rank}")
-        # logger.warning(f"self._tp_size: {self._tp_size}")
-        # logger.warning(f"visible_devices is: {visible_devices}")
-        # logger.warning(f"self.visible_devices_set is: {self.visible_devices_set}")   
-        # # assert 1==2
 
     def _verify_config(self, model_hf_config):
         if not self.config.get("max_model_len", None):
@@ -453,12 +462,6 @@ class SGLangRollout(BaseRollout):
 
     def _init_inference_engine(self, trust_remote_code, actor_module, port): # 初始化封装的 AsyncEngine
 
-        # # DEBUG
-        # logger.warning(f"SGLangRollout _init_inference_engine trust_remote_code: {trust_remote_code}") # True
-        # logger.warning(f"SGLangRollout _init_inference_engine actor_module: {actor_module}") # /home/dist/zhaoping/LLMs/Qwen3-1.7B
-        # logger.warning(f"SGLangRollout _init_inference_engine port: {port}") # None
-        # logger.warning(f"SGLangRollout self._tp_size: {self._tp_size}, self.visible_devices_set: {self.visible_devices_set}")
-
         # initialize the inference engine
         nnodes = -(-self._tp_size // len(self.visible_devices_set))
         if nnodes > 1:
@@ -484,8 +487,8 @@ class SGLangRollout(BaseRollout):
 
         # attention backend will be changed to fa3 if not specified
         attention_backend = engine_kwargs.pop("attention_backend", None)
-        # max_running_requests = self.config.get("max_num_seqs", None)
-        max_running_requests = 48 # ATTN 强制减少并行度
+        max_running_requests = self.config.get("max_num_seqs", None)
+        max_running_requests = 128
 
         # DEBUG
         logger.warning(f"SGLangRollout engine_kwargs: {engine_kwargs}") # None
@@ -498,11 +501,11 @@ class SGLangRollout(BaseRollout):
 
         if self.config.mode == "async" and not self.config.skip_tokenizer_init:
             raise ValueError("async mode requires skip_tokenizer_init to be True")
-        # backend = attention_backend if attention_backend is not None else "fa3"
+        backend = attention_backend if attention_backend is not None else "fa3"
         # backend = attention_backend if attention_backend is not None else "flashinfer"
         # backend = attention_backend if attention_backend is not None else "triton"
         # backend = None # ATTN 是否要替换backend？ 单卡的时候需要设置为 None，不然会报错
-        backend = "triton"
+        #backend = "triton"
         logger.warning(f"SGLangRollout backend: {backend}") # DEBUG
 
         logger.warning(f"SGLangRollout effective_first: {effective_first}, is_server_mode: {is_server_mode}")
@@ -543,9 +546,14 @@ class SGLangRollout(BaseRollout):
                 "skip_tokenizer_init": self.config.skip_tokenizer_init,
                 # "skip_tokenizer_init": False, # ATTN 和 SGLang默认参数设置对齐
                 "dist_timeout": 1800,
+                "disable_cuda_graph":True,
+                "disable_overlap_schedule":True,
+                #"chunked_prefill_size":4096,
+                #"max_prefill_tokens":8192
+                
             }
 
-            args['base_gpu_id'] = int(os.environ.get('RANK',0)) # ATTN 修改RANK
+            args['base_gpu_id'] = int(os.environ.get('RANK',0)) % 8 # ATTN 修改RANK
             # if "DeepSeek" in actor_module:
                 # logger.warning(f"Model: {actor_module}, set enable_dp_attention=True")
                 # args['enable_dp_attention'] = True # 对MoE模型开注意力数据并行
@@ -836,22 +844,19 @@ class SGLangRollout(BaseRollout):
         request_sampling_params.update(kwargs)
 
         # logger.warning(f"self._tp_rank = {self._tp_rank}") # DEBUG 0
-
+        # global_rank = int(os.environ.get("RANK",0))
+        # save_file_rank = global_rank - global_rank % self._tp_size
+        # sync_file = f'/tmp/rank_{save_file_rank}.log'
+        # logger.warning(f"sync_file++: {global_rank} {sync_file}")
+        # if self._tp_rank == 0:
+        #     if os.path.exists(sync_file):
+        #         os.remove(sync_file)
         if self._tp_rank == 0:
             loop = asyncio.get_event_loop()
-            logger.warning(f"SGLangRollout self._engine class is: {self._engine}") # DEBUG
+            logger.warning(f"SGLangRollout self._engine class is: {self._engine}")
             # verl.workers.rollout.sglang_rollout.sglang_rollout.AsyncEngine
-            request_sampling_params["repetition_penalty"] = 1.1 # DEBUG 手动修改参数
-            logger.warning(f"SGLangRollout request_sampling_params: {request_sampling_params}") # DEBUG
-            # # DEBUG 存储generate阶段的input_id
-            # # logger.warning(f"SGLangRollout _batch_level_generate_sequences input_ids: {idx_list}")
-            # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/tmp_data/sglang_rollout_input_ids.pkl", "wb") as f:
-            #     pickle.dump(idx_list, f)
-
-            # assert 1==2 # DEBUG
-            # {'n': 1, 'max_new_tokens': 32, 'presence_penalty': 0.0, 'frequency_penalty': 0.0, 
-            # 'repetition_penalty': 1.0, 'temperature': 1.0, 'top_k': -1, 'top_p': 1, 
-            # 'ignore_eos': False}
+            #request_sampling_params["repetition_penalty"] = 1.1 #
+            logger.warning(f"SGLangRollout request_sampling_params: {request_sampling_params}")
             output = loop.run_until_complete(
                 self._engine.async_generate(
                     prompt=None,  # because we have already convert it to prompt token id
@@ -861,17 +866,39 @@ class SGLangRollout(BaseRollout):
                     image_data=image_list,
                 )
             )
+            barrier_tensor = torch.rand(2,3)
+    
+            
         else:
             logger.warning(f"_batch_level_generate_sequences TP_Rank: {self._tp_rank} sleep")
-            time.sleep(20) # ATTN 这里在多 TP 场景下，非TP0等待TP0上执行完
             output = None
-
-
+            max_wait_time = 60*30
+            wait_interval = 0.02
+            start_time = time.time()
+            barrier_tensor = torch.rand(2,3)
+            # while not os.path.exists(sync_file):
+            #     if time.time() - start_time > max_wait_time:
+            #         logger.error(f"TP{self._tp_rank} timeout waiting for TP0 sync file")
+            #         break
+            #     time.sleep(wait_interval)
+            #     logger.debug(f"TP{self._tp_rank} waiting for sync file...")    
+            # if os.path.exists(sync_file):
+            #     logger.warning(f"TP{self._tp_rank} detected sync file, proceeding")
+        
+        torch.distributed.all_reduce(barrier_tensor,group=self.gloo_group_for_barrier)
+        #self.gloo_group_for_barrier
         logger.warning(f"TP_Rank: {self._tp_rank}, SGLangRollout _batch_level_generate_sequences before dist.barrier()") # DEBUG
         # Most naive implementation, can extract tensor and send via gloo if too slow
         dist.barrier()
         logger.warning(f"TP_Rank: {self._tp_rank}, SGLangRollout _batch_level_generate_sequences after dist.barrier()") # DEBUG
-
+        
+        # try:
+        #     if self._tp_rank == 0:
+        #         os.remove(sync_file)
+        #         logger.debug(f"TP{self._tp_rank} cleaned up sync file")
+        # except:
+        #     pass
+        
         [output] = broadcast_pyobj(
             data=[output],
             rank=self._rank,
@@ -1633,11 +1660,14 @@ class SGLangRollout(BaseRollout):
         """
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._engine.resume_memory_occupation(tags=tags)
+        torch.distributed.barrier(group=self.gloo_group_for_barrier)
+        
 
     async def release(self):
         """Release weights and kv cache in GPU memory."""
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
             await self._engine.release_memory_occupation(tags=["kv_cache", "weights"])
+        torch.distributed.barrier(group=self.gloo_group_for_barrier)
 
     async def update_weights(self, weights: Generator[tuple[str, torch.Tensor], None, None], **kwargs):
         """
@@ -1685,6 +1715,7 @@ class SGLangRollout(BaseRollout):
                 device_mesh_key="infer_tp",
                 device_mesh=self.device_mesh,
             )
+            torch.distributed.barrier(group=self.gloo_group_for_barrier)
             # dist.barrier() # ATTN 尝试直接在这里做同步，不行，依旧会导致阻塞
             # tp_rank 非0进程会重新开始一轮循环，在 per_tensor_generator 函数中 存在 all-gather 操作
 

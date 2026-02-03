@@ -1,15 +1,14 @@
 working_dir: ./
-excludes: ["/.git/"]
+excludes: ["/.git/",'extra_data','.json','checkpoints','output','outputs','logs','.log','.safetensors','.pt','log_0120']
 env_vars:
   # ====== MUSA log ======
   # MUSA_LOG: "0xf"
   # ====== xpu debug ======
   MCCL_LIB: "/usr/local/musa/lib/libmccl.so"
-  LOCAL_WORLD_SIZE: "2" # 8
-  XPU_TIMER_TIMELINE_PATH: "/home/verl/run_cmd/xputimer_debug"
+  #XPU_TIMER_TIMELINE_PATH: "/home/verl/run_cmd/xputimer_debug"
   # XPU_TIMER_HANG_TIMEOUT: "240" # Hang检测超时设置小于kernel execution timeout （单位：秒？）
-  XPU_TIMER_HANG_TIMEOUT: "60"
-  XPU_TIMER_PORT: "18889"
+  #XPU_TIMER_HANG_TIMEOUT: "60"
+  #XPU_TIMER_PORT: "18889"
   # ======
   MUSA_ERROR_DUMP_VERBOSE: "1" # 用于 musa dump 调试
   # MCCL_DEBUG: "INFO"       # 启用MCCL的详细信息输出
@@ -20,7 +19,7 @@ env_vars:
   # TORCH_CPP_LOG_LEVEL: "INFO"
   # MCCL_DEBUG: "INFO" # MCCL 调试信息输出
   # MCCL_P2P_DISABLE: "1" # 临时禁用点对点通信
-  MUSA_LAUNCH_BLOCKING: "1"
+  MUSA_LAUNCH_BLOCKING: "0"
   # MUSA_EXECUTION_TIMEOUT: "30000" # 单位：毫秒
   MUSA_EXECUTION_TIMEOUT: "3000000" # 单位：毫秒 3000秒
   # ==================
@@ -50,7 +49,7 @@ env_vars:
   MUSA_PATCH_PATH: "/home/megatron-lm-musa-patch"
   MEGATRON_PATH: "/home/Megatron-LM"
   VERL_PATH: "/mnt/seed-program-nas/001688/kechun.wu/tmp0119/verl"
-  PYTHONPATH: "$MEGATRON_PATH:$VERL_PATH:$PYTHONPATH"
+  PYTHONPATH: "/mnt/seed-program-nas/001688/kechun.wu/tmp0119/verl:/home/Megatron-LM:$PYTHONPATH"
   VLLM_USE_V1: "0"
   ACCELERATE_USE_FSDP: "1"
   FSDP_CPU_RAM_EFFICIENT_LOADING: "1"
