@@ -46,6 +46,7 @@ from verl.trainer.ppo.core_algos import AdvantageEstimator, agg_loss
 from verl.trainer.ppo.metric_utils import (
     compute_data_metrics,
     compute_throughout_metrics,
+    compute_timing_fraction_metrics,
     compute_timing_metrics,
     process_validation_metrics,
 )
@@ -797,6 +798,21 @@ class RayPPOTrainer:
         self.actor_rollout_wg.init_model() # ATTN 这里调用ActorRolloutRefWorker类的init_model，进一步调用 _build_rollout 初始化SGLangRollout类
         logger.warning(f'RayPPOTrainer FINISH actor init {torch.musa.current_device()}') # DEBUG
 
+        self.model_params_dict = {}
+        try:
+            self.model_params_dict["update_actor"] = self._get_model_params(self.actor_rollout_wg)
+            if self.use_reference_policy:
+                self.model_params_dict["ref"] = self._get_model_params(self.ref_policy_wg)
+            if self.use_critic:
+                self.model_params_dict["update_critic"] = self._get_model_params(self.critic_wg)
+                self.model_params_dict["values"] = self.model_params_dict["update_critic"]  # same model
+            self.model_params_dict["old_log_prob"] = self.model_params_dict["update_actor"]  # same model
+            self.model_params_dict["gen"] = self.model_params_dict["update_actor"]  # same model
+            print(f"Collected model parameters: {self.model_params_dict}")
+        except Exception as e:
+            print(f"Warning: Could not collect model params for TFLOPs computation: {e}")
+            self.model_params_dict = {}
+
         # create async rollout manager and request scheduler
         self.async_rollout_mode = False
         if self.config.actor_rollout_ref.rollout.mode == "async":
@@ -806,6 +822,16 @@ class RayPPOTrainer:
             self.async_rollout_manager = AgentLoopManager(
                 config=self.config, worker_group=self.actor_rollout_wg, rm_wg=self.rm_wg
             )
+
+    def _get_model_params(self, worker_group) -> int:
+        """Get total number of trainable parameters in a model."""
+        try:
+            # Call a new method on worker to get param count
+            params = ray.get(worker_group.get_num_params.remote())
+            return params[0] if isinstance(params, list) else params
+        except Exception as e:
+            print(f"Warning: get_num_params failed: {e}")
+            return 0
 
     def _save_checkpoint(self):
         from verl.utils.fs import local_mkdir_safe
@@ -1370,9 +1396,17 @@ class RayPPOTrainer:
                 # collect metrics
                 metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
+                metrics.update(compute_timing_fraction_metrics(timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
-                metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
+                metrics.update(
+                    compute_throughout_metrics(
+                        batch=batch,
+                        timing_raw=timing_raw,
+                        n_gpus=n_gpus,
+                        model_params_dict=self.model_params_dict,
+                    )
+                )
                 # Note: mismatch metrics (KL, PPL, etc.) are collected at line 1179 after advantage computation
 
                 # this is experimental and may be changed/removed in the future in favor of a general-purpose one

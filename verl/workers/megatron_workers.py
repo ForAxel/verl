@@ -924,6 +924,13 @@ class AsyncActorRolloutRefWorker(ActorRolloutRefWorker):
         ret = await self.rollout.generate(prompt_ids, sampling_params, request_id, image_data=image_data)
         return ret
 
+    @register(dispatch_mode=Dispatch.ONE_TO_ALL)
+    def get_num_params(self) -> int:
+        """Return total trainable parameters for the actor model."""
+        if hasattr(self, "actor_module") and self.actor_module is not None:
+            return sum(p.numel() for p in self.actor_module.parameters() if p.requires_grad)
+        return 0
+
 
 class CriticWorker(MegatronWorker, DistProfilerExtension):
     def __init__(self, config: McoreCriticConfig):
@@ -1199,6 +1206,13 @@ class CriticWorker(MegatronWorker, DistProfilerExtension):
         )
         if self._is_offload_param:
             offload_megatron_model_to_cpu(self.critic_module)
+
+    @register(dispatch_mode=Dispatch.ONE_TO_ALL)
+    def get_num_params(self) -> int:
+        """Return total trainable parameters for the critic model."""
+        if hasattr(self, "critic_module") and self.critic_module is not None:
+            return sum(p.numel() for p in self.critic_module.parameters() if p.requires_grad)
+        return 0
 
 
 class RewardModelWorker(MegatronWorker, DistProfilerExtension):
