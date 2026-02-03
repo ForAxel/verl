@@ -4,8 +4,8 @@
 set -x
 
 # 直接使用下载的模型参数和mcore参数
-HF_MODEL_PATH='/home/dist/zhaoping/LLMs/DeepSeek-V2-Lite'
-DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/DeepSeek-V2-Lite'
+HF_MODEL_PATH='/home/dist/zhaoping/LLMs/Qwen3-8B'
+DIST_CKPT_PATH='/home/dist/zhaoping/LLMs/MCORE/Qwen3-8B'
 
 # export MUSA_VISIBLE_DEVICES='0,1'
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
@@ -47,7 +47,7 @@ CONFIG_PATH="/home/dist/zhaoping/Code/verl-musa-patch/verl/verl/trainer/config"
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
-    RAY_LOGGING_LEVEL=DEBUG \
+    RAY_LOGGING_LEVEL=WARNING \
     RAY_DEDUP_LOGS=0 \
     RAY_ADDRESS="10.18.32.9:65379" \
 python3 -u -m verl.trainer.main_ppo \
@@ -56,7 +56,7 @@ python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=8 \
+    data.train_batch_size=2 \
     data.max_prompt_length=256 \
     data.max_response_length=16 \
     data.filter_overlong_prompts=True \
@@ -64,48 +64,43 @@ python3 -u -m verl.trainer.main_ppo \
     data.truncation='error' \
     actor_rollout_ref.model.path=$HF_MODEL_PATH \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=1 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.expert_model_parallel_size=4 \
+    actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.use_torch_compile=false \
-    actor_rollout_ref.actor.optim.clip_grad=0.5 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.tensor_model_parallel_size=4 \
-    actor_rollout_ref.rollout.data_parallel_size=1 \
-    actor_rollout_ref.rollout.expert_parallel_size=4 \
+    actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=sglang \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.6 \
-    actor_rollout_ref.rollout.n=2 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
+    actor_rollout_ref.rollout.n=1 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
     actor_rollout_ref.rollout.top_p=0.95 \
     actor_rollout_ref.rollout.val_kwargs.temperature=0.8 \
     actor_rollout_ref.rollout.val_kwargs.top_k=50 \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
-    actor_rollout_ref.rollout.free_cache_engine=False \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.expert_model_parallel_size=4 \
+    actor_rollout_ref.ref.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
-    trainer.experiment_name='DeepSeek-V2-Lite_megatron_sglang' \
-    trainer.n_gpus_per_node=4 \
+    trainer.experiment_name='Qwen3-8B_megatron_sglang' \
+    trainer.n_gpus_per_node=1 \
     trainer.val_before_train=False \
     trainer.nnodes=1 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/DeepSeek-V2-Lite_ppo_ep4.log
+    2>&1 | tee ../logs/Qwen3-8B_ppo_single.log

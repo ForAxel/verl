@@ -323,6 +323,8 @@ class SGLangRollout(BaseRollout):
             f"{self._function_call_parser}"
         )
 
+        self.ep_size = self.config.expert_parallel_size # 获取ep_size
+
         self._init_distributed_env(device_mesh_cpu=None, **kwargs) # ATTN 初始化分布式环境，需要检查
         
         
@@ -521,6 +523,7 @@ class SGLangRollout(BaseRollout):
                 "base_gpu_id": 0,
                 "gpu_id_step": 1,
                 "tp_size": self._tp_size,
+                "ep_size": self.ep_size,  # 参数传递
                 "node_rank": node_rank,
                 "load_format": load_format,
                 "dist_init_addr": dist_init_addr,
@@ -560,7 +563,7 @@ class SGLangRollout(BaseRollout):
                 # args['dtype'] = "bfloat16" # 上面已经设置了，这里相当于重复设置了一次
              
 
-            # logger.warning(f"SGLang Rollout engine args: {args}")
+            logger.warning(f"SGLang Rollout engine args: {args}")
             # import json
             # with open("/home/dist/zhaoping/Code/verl-musa-patch/verl/backup_shells/verl_config/sglangengine_args.json", "w") as f:
             #     json.dump(args, f)
