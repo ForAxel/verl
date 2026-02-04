@@ -365,7 +365,7 @@ class MegatronPPOActor(BasePPOActor):
         #mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
         
         rank = torch.distributed.get_rank()
-        p = '/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs/rank-{}.pt'.format(rank)
+        p = '/mnt/seed17/001688/shenyichong/verl/tmp_logs/rank-{}.pt'.format(rank)
         torch.save([mini_batch.batch["input_ids"],mini_batch.batch["attention_mask"],att_ori],p)
         self.has_multi_modal_inputs = "multi_modal_inputs" in mini_batch.non_tensor_batch.keys()
         if self.has_multi_modal_inputs:

@@ -661,7 +661,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             from datetime import datetime
             import os
             rank = torch.distributed.get_rank()
-            p = '/mnt/seed-program-nas/001688/kechun.wu/tmp0119/tmp_logs_0121/rank_{}.log'.format(rank)
+            p = '/mnt/seed17/001688/shenyichong/verl/tmp_logs/rank_{}.log'.format(rank)
             with open(p,'a+') as f:
                 tag = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]: pid = {os.getpid()}, {tag} \n" 
                 f.write(tag)

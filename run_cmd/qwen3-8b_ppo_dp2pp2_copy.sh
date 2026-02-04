@@ -37,8 +37,8 @@ DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
 train_files=$DATASET_PATH/math_train.parquet
 test_files=$DATASET_PATH/math_test.parquet
 
-#train_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/train.parquet
-#train_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/test2.parquet
+#train_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/train.parquet
+#train_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/test2.parquet
 
 
 # 需要指定到 Verl 中对应config路径

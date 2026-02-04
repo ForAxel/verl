@@ -30,7 +30,7 @@ export HYDRA_FULL_ERROR=1
 
 export MUSA_PATCH_PATH=/home/megatron-lm-musa-patch/
 export MEGATRON_PATH=/home/Megatron-LM
-export VERL_PATH=/mnt/seed-program-nas/001688/kechun.wu/tmp0119/verl
+export VERL_PATH=/mnt/seed17/001688/shenyichong/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
 
 
@@ -38,12 +38,12 @@ DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
 train_files=$DATASET_PATH/math_train.parquet
 test_files=$DATASET_PATH/math_test.parquet
 
-train_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/dapo_train_16k.parquet
-test_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/dapo_val_1k.parquet
+train_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/dapo_train_16k.parquet
+test_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/dapo_val_1k.parquet
 
 
-#train_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/train.parquet
-#train_files=/mnt/seed-program-nas/001688/kechun.wu/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/test2.parquet
+#train_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/train.parquet
+#train_files=/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/lighteval-MATH-preprocessed/test2.parquet
 
 
 # 需要指定到 Verl 中对应config路径
@@ -92,7 +92,7 @@ export LD_LIBRARY_PATH=/usr/local/musa/lib:$LD_LIBRARY_PATH
 #     RAY_DEDUP_LOGS=0 \
 #     MUSA_ERROR_DUMP_VERBOSE=1 \
 #     RAY_ADDRESS="localhost:65379" \
-runtime_env=/mnt/seed-program-nas/001688/kechun.wu/tmp0119/verl/run_cmd/runtime_env.yaml
+runtime_env=/mnt/seed17/001688/shenyichong/verl/run_cmd/runtime_env.yaml
 RAY_ADDRESS='http://10.202.43.221:8265' ray job submit \
     --runtime-env=$runtime_env \
     --no-wait \
