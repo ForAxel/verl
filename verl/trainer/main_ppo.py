@@ -380,8 +380,11 @@ class TaskRunner:
 
         resource_pool_manager = self.init_resource_pool_mgr(config)
 
+        logger.warning(f"TaskRunner run FUNC, get resource_pool_manager FINISHED!")
+
         from verl.utils.dataset.rl_dataset import collate_fn
 
+        logger.warning(f"TaskRunner run FUNC, loading dataset...")
         # Create training and validation datasets.
         train_dataset = create_rl_dataset(
             config.data.train_files,
@@ -399,6 +402,7 @@ class TaskRunner:
             is_train=False,
             max_samples=config.data.get("val_max_samples", -1),
         )
+        logger.warning(f"TaskRunner run FUNC, dataset loaded")
         train_sampler = create_rl_sampler(config.data, train_dataset)
 
         # Initialize the PPO trainer.

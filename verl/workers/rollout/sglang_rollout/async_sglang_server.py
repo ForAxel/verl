@@ -178,7 +178,7 @@ class SGLangHttpServer:
             "model_path": self.model_config.local_path,
             "dtype": self.config.dtype,
             "mem_fraction_static": self.config.gpu_memory_utilization,
-            "disable_cuda_graph": True, #self.config.enforce_eager,
+            "disable_cuda_graph": True, # self.config.enforce_eager,
             "enable_memory_saver": True,
             "base_gpu_id": self.base_gpu_id,
             "gpu_id_step": 1,

@@ -42,7 +42,6 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # export TORCH_SAFE_SERIALIZATION=1
 
 export VLLM_PATCH_MUSA_CUSTOM_OPS=1
-export MUSA_LOG=0x1 # 查看 MUSA API报错
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
@@ -57,9 +56,9 @@ python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=16 \
-    data.max_prompt_length=256 \
-    data.max_response_length=16 \
+    data.train_batch_size=64 \
+    data.max_prompt_length=1024 \
+    data.max_response_length=128 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
@@ -67,11 +66,14 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.model.enable_activation_offload=True \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=32 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8 \
+    actor_rollout_ref.actor.profiler.enable=False \
+    actor_rollout_ref.actor.megatron.use_mbridge=False \
+    actor_rollout_ref.actor.megatron.vanilla_mbridge=False \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.expert_model_parallel_size=8 \
+    actor_rollout_ref.actor.megatron.expert_model_parallel_size=16 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     actor_rollout_ref.actor.megatron.param_offload=True \
@@ -81,11 +83,8 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.use_torch_compile=false \
-    actor_rollout_ref.actor.optim.clip_grad=0.5 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=8 \
-    actor_rollout_ref.rollout.data_parallel_size=1 \
     actor_rollout_ref.rollout.expert_parallel_size=8 \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
@@ -96,21 +95,23 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.temperature=0.8 \
     actor_rollout_ref.rollout.val_kwargs.top_k=50 \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
+    actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.expert_model_parallel_size=8 \
+    actor_rollout_ref.ref.megatron.expert_model_parallel_size=16 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
     trainer.project_name='verl_grpo_example_gsm8k_math' \
-    trainer.experiment_name='Qwen3_30b_megatron_sglang' \
+    trainer.experiment_name='Qwen3-30B-A3B_megatron_sglang' \
     trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
-    trainer.nnodes=1 \
+    trainer.nnodes=2 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/newVerl/qwen3-30b_ppo_ep8.log
+    > ../logs/newVerl/Qwen3-30B-A3B_ppo_node2_ep8_multisteps_MUSAERROR.log 2>&1 
+    

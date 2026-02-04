@@ -129,19 +129,26 @@ class ServerAdapter(BaseRollout):
         self._engine: AsyncHttpServerAdapter = None
 
         rank = int(os.environ["RANK"])
-        local_world_size = int(os.environ["RAY_LOCAL_WORLD_SIZE"])
-        rollout_world_size = self.config.tensor_model_parallel_size * self.config.data_parallel_size
+        local_world_size = int(os.environ["RAY_LOCAL_WORLD_SIZE"]) # 8
+        rollout_world_size = self.config.tensor_model_parallel_size * self.config.data_parallel_size # 16
         self.replica_rank = rank // rollout_world_size
         self.rollout_rank = rank % rollout_world_size
         self.node_rank = self.rollout_rank // local_world_size
         self.local_rank = self.rollout_rank % local_world_size
+        logger.warning(f"ServerAdapter __init__ rank: {rank}, local_world_size: {local_world_size}, rollout_world_size: {rollout_world_size},  \
+                       self.rollout_rank: {self.rollout_rank}, self.node_rank: {self.node_rank}, self.local_rank: {self.local_rank}")
 
         from .utils import init_process_group
         tp_size = self.config.tensor_model_parallel_size
         master_address = '127.0.0.1'
+
+        # ATTN 多机通信需要同步IP地址
+        # master_address = '10.202.34.46'
+
         master_port = 1598 +  rank - rank % tp_size
         from datetime import timedelta
         timeout = timedelta(seconds=3000)
+        logger.warning(f"ServerAdapter init gloo_group_for_barrier, master_port: {master_port}, tp_size: {tp_size}, self.rollout_rank: {self.rollout_rank}")
         self.gloo_group_for_barrier = init_process_group(
             backend='gloo',
             timeout=timeout,

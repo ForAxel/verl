@@ -641,8 +641,8 @@ class MegatronPPOActor(BasePPOActor):
                 forward_fn = get_mcore_forward_fn(self.hf_config)
 
                 def logits_processor(logits, label, label_mask):
-                    assert logits.shape[:2] == label.shape[:2]
-                    assert label.shape == label_mask.shape
+                    assert logits.shape[:2] == label.shape[:2], f"logits.shape: {logits.shape}, label.shape:{label.shape}"
+                    assert label.shape == label_mask.shape, f"label.shape: {label.shape}, label_mask.shape: {label_mask.shape}"
                     logits.div_(temperature)
                     ret = {}
                     if calculate_entropy:

@@ -418,7 +418,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 peft_config=self.config.model.get("lora", None),
             )
             self.tf_config = updated_tf_config
-            print(f"actor_module: {len(actor_module)}")
+            print(f"ActorRolloutRefWorker _build_model_optimizer actor_module: {len(actor_module)}")
             if self.config.actor.load_weight:
                 if self.config.actor.megatron.use_dist_checkpointing:
                     load_mcore_dist_weights(
@@ -438,6 +438,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                         load_megatron_gptmodel_weights(
                             self.config, self.hf_config, actor_module, params_dtype=self.dtype, is_value_model=False
                         )
+                print(f"ActorRolloutRefWorker _build_model_optimizer actor_module load weight FINISH!")
 
             if self.rank == 0:
                 print_model_size(actor_module[0])
@@ -460,7 +461,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             self.tf_config = updated_tf_config
             if self.config.ref.load_weight:  # should align with the actor:
                 assert self.config.actor.load_weight == self.config.ref.load_weight
-                print("load ref weight start")
+                print(f"ActorRolloutRefWorker _build_model_optimizer load ref weight start, ref_module type: {type(ref_module)} len: {len(ref_module)}")
                 if self.config.ref.megatron.use_dist_checkpointing:
                     load_mcore_dist_weights(
                         ref_module,
@@ -479,6 +480,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                         load_megatron_gptmodel_weights(
                             self.config, self.hf_config, ref_module, params_dtype=self.dtype, is_value_model=False
                         )
+                print("ActorRolloutRefWorker _build_model_optimizer load ref weight FINISH")
             log_gpu_memory_usage("After ref module init", logger=logger)
             return ref_module, self.hf_config
 

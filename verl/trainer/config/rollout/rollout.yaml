@@ -35,7 +35,7 @@ gpu_memory_utilization: 0.5
 ignore_eos: False
 
 # Whether to disable CUDA graph. Default False to best performance.
-enforce_eager: True #False set True to disable cuda_graph
+enforce_eager: False # set True to disable cuda_graph
 
 # batch size of cudagraph to capture. Require enforce_eager: False to use this option
 # Since cudagraph in inference engine can not be offloaded during update policy,

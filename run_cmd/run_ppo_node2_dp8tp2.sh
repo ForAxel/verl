@@ -96,7 +96,7 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.experiment_name='Qwen3_1.7b_megatron_sglang' \
     trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
-    trainer.nnodes=1 \
+    trainer.nnodes=2 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
