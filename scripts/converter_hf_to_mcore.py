@@ -511,11 +511,12 @@ def convert_hf_to_mcore(hf_model_path, output_path, use_cpu_initialization=False
         return
 
     # init torch distributed and mpu
-    if "WORLD_SIZE" not in os.environ:
-        os.environ["RANK"] = "0"
-        os.environ["WORLD_SIZE"] = "1"
-        os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = "12355"
+    # comment out for nanhu platform
+    # if "WORLD_SIZE" not in os.environ:
+    os.environ["RANK"] = "0"
+    os.environ["WORLD_SIZE"] = "1"
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
 
     torch.distributed.init_process_group("mccl")
 

@@ -57,7 +57,7 @@ env_vars:
   MCCL_SOCKET_IFNAME: "bond0" # 添加
   GLOO_SOCKET_IFNAME: "bond0"
   # RAY_DEBUG_POST_MORTEM: "1"
-  MCCL_IB_HCA: "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"
+  # MCCL_IB_HCA: "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"  # commented out: let MCCL auto-detect IB devices (varies per node)
   # MCCL_IB_HCA: "mlx5_bond_2,mlx5_bond_3,mlx5_bond_4,mlx5_bond_5" 
   MCCL_ALGOS: "1"
   MCCL_IB_GID_INDEX: "3"
