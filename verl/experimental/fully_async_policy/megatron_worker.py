@@ -91,10 +91,19 @@ class DetachNcclSync(BaseDetachNcclSync, AsyncActorRolloutRefWorker):
             else:
                 raise NotImplementedError(f"Unknown rollout name: {rollout_name}")
 
-        if rollout_name == "sglang" and self._is_rollout:
-            self._sync_sglang_weights(inference_model, params, sync_group_name)
-        else:
-            self._sync_vllm_weights(inference_model, params, sync_group_name)
+        logger.warning(f"DetachNcclSync sync_rollout_weights rollout_name: {rollout_name}, self.role: {self.role}")
+        # if rollout_name == "sglang" and self._is_rollout:
+        #     self._sync_sglang_weights(inference_model, params, sync_group_name)
+        # else:
+        #     self._sync_vllm_weights(inference_model, params, sync_group_name)
+        
+        if self._is_rollout: # ATTN 仅对rollout模型进行权重更新操作
+            if rollout_name == "sglang":
+                self._sync_sglang_weights(inference_model, params, sync_group_name)
+            elif rollout_name == "vllm":
+                self._sync_vllm_weights(inference_model, params, sync_group_name)
+            else:
+                raise NotImplementedError
 
         if self._is_actor and self._is_offload_param:
             offload_megatron_model_to_cpu(self.actor_module)

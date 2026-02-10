@@ -59,6 +59,7 @@ def create_resource_pool_manager(config, roles: list) -> ResourcePoolManager:
 
     # Rollout resource pool
     if Role.Rollout in roles:
+        print(f"\nconfig.rollout is: {config.rollout}\n")
         assert config.rollout.n_gpus_per_node > 0, "config.rollout.n_gpus_per_node must be greater than 0"
         assert config.rollout.nnodes > 0, "config.rollout.nnodes must be greater than 0"
 
@@ -304,6 +305,7 @@ def main(config):
     from time import time
 
     start_time = time()
+    # print(f"run_ppo_config is: {config}")
     run_ppo(config, task_runner_class=FullyAsyncTaskRunner)
     print(f"total time: {time() - start_time:.2f} seconds")
 

@@ -196,7 +196,8 @@ def _get_physical_device_id(device_index: int | None = None) -> str:
         if get_device_name() == "npu":
             return f"NPU-{npu_generate_uuid()}"
         else:
-            return f"GPU-{get_torch_device().get_device_properties(device_index).uuid!s}"
+            # return f"GPU-{get_torch_device().get_device_properties(device_index).uuid!s}"
+            return f"GPU-{device_index!s}" # ATTN MUSA使用device index替代uuid
     except AssertionError as e:
         raise ValueError(f"fail to get physical gpu id {device_index}") from e
 
