@@ -58,9 +58,9 @@ python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=32 \
-    data.max_prompt_length=512 \
-    data.max_response_length=16 \
+    data.train_batch_size=64 \
+    data.max_prompt_length=1024 \
+    data.max_response_length=128 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
@@ -68,7 +68,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.model.enable_activation_offload=True \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=16 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=32 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.actor.profiler.enable=False \
     actor_rollout_ref.actor.megatron.use_mbridge=False \
@@ -114,8 +114,9 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.experiment_name='DeepSeek-V2-Lite_megatron_sglang' \
     trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
-    trainer.nnodes=1 \
+    trainer.nnodes=2 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/newVerl/DeepSeek-V2-Lite_ppo_ep8_multisteps.log
+    2>&1 | tee ../logs/DeepSeek-V2-Lite_ppo_node2_ep8.log
+    

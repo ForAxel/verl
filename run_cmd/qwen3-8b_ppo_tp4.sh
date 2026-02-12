@@ -3,25 +3,14 @@ set -x
 # 直接使用下载的模型参数和mcore参数
 HF_MODEL_PATH='/mnt/seed17/001688/zhaoping/LLMs/Qwen3-8B'
 DIST_CKPT_PATH='/mnt/seed17/001688/zhaoping/LLMs/MCORE/Qwen3-8B'
-
+# export MUSA_VISIBLE_DEVICES='0,1'
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
-# export MUSA_VISIBLE_DEVICES='7'
 # export MUSA_EXECUTION_TIMEOUT=30000
 export ACCELERATOR_BACKEND="musa"
 export MCCL_PROTOS=2
 export MCCL_CHECK_POINTERS=0
-
-# export MCCL_IB_GID_INDEX=3
-# export MUSA_BLOCK_SCHEDULE_MODE=1
-# export MCCL_ALGOS=1
-# export MCCL_BUFFSIZE=20480000
-
-
-# export ACCELERATE_USE_FSDP=1
-# export FSDP_CPU_RAM_EFFICIENT_LOADING=1
 export VERL_LOGGING_LEVEL=INFO #INFO
 export HYDRA_FULL_ERROR=1
-#export MUSA_USERQ=1
 
 # export MUSA_PATCH_PATH=/mnt/seed17/001688/zhaoping/Code/verl-musa-patch
 export MEGATRON_PATH=/home/Megatron-LM
@@ -36,17 +25,16 @@ test_files=$DATASET_PATH/math_test.parquet
 # 需要指定到 Verl 中对应config路径
 CONFIG_PATH=$VERL_PATH/verl/trainer/config
 
-
-# # 解决保存问题
-# export CUDA_LAUNCH_BLOCKING=1
-# export TORCH_SAFE_SERIALIZATION=1
+export VLLM_PATCH_MUSA_CUSTOM_OPS=1
+export MUSA_LOG=0x1 # 查看 MUSA API报错
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
-    RAY_LOGGING_LEVEL=WARNING \
+    RAY_LOGGING_LEVEL=DEBUG \
     RAY_DEDUP_LOGS=0 \
     RAY_ADDRESS="localhost:65379" \
+    VLLM_PATCH_MUSA_CUSTOM_OPS=1 \
 python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
     --config-name='ppo_megatron_trainer_demo.yaml'\
@@ -75,7 +63,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=4 \
     actor_rollout_ref.rollout.name=sglang \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
     actor_rollout_ref.rollout.n=2 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \

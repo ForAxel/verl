@@ -546,11 +546,11 @@ def convert_hf_to_mcore(
         return
 
     # init torch distributed and mpu
-    if "WORLD_SIZE" not in os.environ:
-        os.environ["RANK"] = "0"
-        os.environ["WORLD_SIZE"] = "1"
-        os.environ["MASTER_ADDR"] = "localhost"
-        os.environ["MASTER_PORT"] = "12355"
+    # if "WORLD_SIZE" not in os.environ:
+    os.environ["RANK"] = "0"
+    os.environ["WORLD_SIZE"] = "1"
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
 
     torch.distributed.init_process_group("mccl")
 

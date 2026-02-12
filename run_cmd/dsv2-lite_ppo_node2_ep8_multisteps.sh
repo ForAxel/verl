@@ -118,6 +118,7 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/newVerl/DeepSeek-V2-Lite_ppo_node2_ep8_multisteps.log
+    > ../logs/newVerl/DeepSeek-V2-Lite_ppo_node2_ep8_multisteps.log 2>&1 
+    # 2>&1 | tee ../logs/newVerl/DeepSeek-V2-Lite_ppo_node2_ep8_multisteps.log
     # > ../logs/newVerl/DeepSeek-V2-Lite_ppo_node2_ep8_multisteps.log 2>&1 
     

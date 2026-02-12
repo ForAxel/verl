@@ -79,6 +79,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.megatron.param_offload=True \
     actor_rollout_ref.actor.megatron.grad_offload=True \
     actor_rollout_ref.actor.megatron.optimizer_offload=True \
+    actor_rollout_ref.actor.megatron.sequence_parallel=False \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
@@ -102,6 +103,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.megatron.expert_model_parallel_size=16 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
+    actor_rollout_ref.ref.megatron.sequence_parallel=False \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
@@ -113,5 +115,5 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    > ../logs/newVerl/Qwen3-30B-A3B_ppo_node2_ep8_multisteps_MUSAERROR.log 2>&1 
+    > ../logs/debug/Qwen3-30B-A3B_ppo_node2_ep8_multisteps_MUSAERROR.log 2>&1 
     
