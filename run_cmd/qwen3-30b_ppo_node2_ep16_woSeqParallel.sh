@@ -42,13 +42,11 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # export TORCH_SAFE_SERIALIZATION=1
 
 export VLLM_PATCH_MUSA_CUSTOM_OPS=1
-export MUSA_LOG=0x1 # 查看 MUSA API报错
 
 env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=DEBUG \
-    MUSA_LOG=0x1 \
     RAY_DEDUP_LOGS=0 \
     RAY_ADDRESS="localhost:65379" \
     VLLM_PATCH_MUSA_CUSTOM_OPS=1 \
@@ -60,7 +58,7 @@ python3 -u -m verl.trainer.main_ppo \
     data.val_files=$test_files \
     data.train_batch_size=64 \
     data.max_prompt_length=1024 \
-    data.max_response_length=32 \
+    data.max_response_length=128 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
@@ -69,31 +67,28 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.ppo_mini_batch_size=32 \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=16 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.actor.profiler.enable=False \
-    actor_rollout_ref.actor.megatron.use_mbridge=True \
-    actor_rollout_ref.actor.megatron.vanilla_mbridge=True \
-    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=2 \
+    actor_rollout_ref.actor.megatron.use_mbridge=False \
+    actor_rollout_ref.actor.megatron.vanilla_mbridge=False \
+    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.actor.megatron.expert_model_parallel_size=8 \
+    actor_rollout_ref.actor.megatron.expert_model_parallel_size=16 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
     actor_rollout_ref.actor.megatron.param_offload=True \
     actor_rollout_ref.actor.megatron.grad_offload=True \
     actor_rollout_ref.actor.megatron.optimizer_offload=True \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.apply_rope_fusion=True \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.masked_softmax_fusion=True \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.batch_p2p_comm=True \
+    actor_rollout_ref.actor.megatron.sequence_parallel=False \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.rollout.pipeline_model_parallel_size=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=8 \
     actor_rollout_ref.rollout.expert_parallel_size=8 \
     actor_rollout_ref.rollout.name=sglang \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.3 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.5 \
     actor_rollout_ref.rollout.n=2 \
     actor_rollout_ref.rollout.temperature=0.8 \
     actor_rollout_ref.rollout.top_k=100 \
@@ -103,11 +98,12 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
     actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=2 \
+    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
-    actor_rollout_ref.ref.megatron.expert_model_parallel_size=8 \
+    actor_rollout_ref.ref.megatron.expert_model_parallel_size=16 \
     actor_rollout_ref.ref.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.ref.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
+    actor_rollout_ref.ref.megatron.sequence_parallel=False \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
@@ -119,6 +115,6 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/newVerl/Qwen3-30B-A3B_ppo_node2_ep8_multisteps.log
-    # > ../logs/newVerl/Qwen3-30B-A3B_ppo_node2_ep8_multisteps.log 2>&1 
+    > ../logs/newVerl/Qwen3-30B-A3B_ppo_node2_ep16_woSeqParallel.log 2>&1 
+
     
