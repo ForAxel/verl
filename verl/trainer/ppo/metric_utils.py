@@ -267,7 +267,39 @@ def compute_timing_metrics(batch: DataProto, timing_raw: dict[str, float]) -> di
     }
 
 
-def compute_throughout_metrics(batch: DataProto, timing_raw: dict[str, float], n_gpus: int) -> dict[str, Any]:
+def compute_timing_fraction_metrics(timing_raw: dict[str, float]) -> dict[str, float]:
+    """
+    Compute time fraction for each sub-stage relative to total step time.
+
+    This function calculates what percentage of the total step time each sub-stage consumes,
+    which helps identify bottlenecks in the training pipeline.
+
+    Args:
+        timing_raw: A dictionary mapping stage names to their execution times in seconds.
+            Must contain a "step" key with the total step time.
+
+    Returns:
+        A dictionary containing timing_fraction/{name} for each sub-stage, representing
+        the fraction of total time spent in that stage. Empty dict if "step" is missing or zero.
+
+    Example:
+        >>> timing_raw = {"step": 10.0, "gen": 4.0, "update_actor": 3.0}
+        >>> compute_timing_fraction_metrics(timing_raw)
+        {"timing_fraction/gen": 0.4, "timing_fraction/update_actor": 0.3}
+    """
+    if "step" not in timing_raw or timing_raw["step"] == 0:
+        return {}
+
+    total_time = timing_raw["step"]
+    fraction_metrics = {}
+
+    for name, value in timing_raw.items():
+        if name != "step":
+            fraction_metrics[f"timing_fraction/{name}"] = value / total_time
+
+    return fraction_metrics
+
+def compute_throughout_metrics(batch: DataProto, timing_raw: dict[str, float], n_gpus: int, model_params_dict: dict[str, int] = None) -> dict[str, Any]:
     """
     Computes throughput metrics for PPO training.
 
@@ -280,27 +312,54 @@ def compute_throughout_metrics(batch: DataProto, timing_raw: dict[str, float], n
         timing_raw: A dictionary mapping stage names to their execution times in seconds.
                    Must contain a "step" key with the total step time.
         n_gpus: Number of GPUs used for training.
+        model_params_dict: Optional dictionary mapping stage names to model parameter counts.
+            If provided, enables per-sub-stage throughput and TFLOPs computation.
 
     Returns:
         A dictionary containing:
             - perf/total_num_tokens: Total number of tokens processed in the batch
             - perf/time_per_step: Time taken for the step in seconds
             - perf/throughput: Tokens processed per second per GPU
+            - perf/{stage}/throughput_tokens_per_sec_per_gpu: Per-stage throughput (if model_params_dict provided)
+            - perf/{stage}/tflops_per_sec_per_gpu: Per-stage TFLOPs (if model_params_dict provided)
 
     Note:
         The throughput is calculated as total_tokens / (time * n_gpus) to normalize
         across different GPU counts.
+        TFLOPs calculation: 2*params*tokens for forward, 6*params*tokens for forward+backward.
     """
     total_num_tokens = sum(batch.meta_info["global_token_num"])
     time = timing_raw["step"]
     # estimated_flops, promised_flops = flops_function.estimate_flops(num_tokens, time)
     # f'Actual TFLOPs/s/GPU​': estimated_flops/(n_gpus),
     # f'Theoretical TFLOPs/s/GPU​': promised_flops,
-    return {
+    metrics = {
         "perf/total_num_tokens": total_num_tokens,
         "perf/time_per_step": time,
         "perf/throughput": total_num_tokens / (time * n_gpus),
     }
+
+    # Per sub-stage throughput and TFLOPs (only if model_params_dict provided)
+    if model_params_dict:
+
+        sub_stages = ["gen", "update_actor", "update_critic", "ref", "old_log_prob", "values"]
+        for stage in sub_stages:
+            if stage in timing_raw and timing_raw[stage] > 0:
+                # tokens/s/gpu - gen uses response tokens, others use total tokens
+                stage_tokens = total_num_tokens
+                metrics[f"perf/{stage}/throughput_tokens_per_sec_per_gpu"] = stage_tokens / (
+                    timing_raw[stage] * n_gpus
+                )
+
+                # TFLOPs/s/gpu for compute-heavy stages
+                if stage in model_params_dict and model_params_dict[stage] > 0:
+                    n_params = model_params_dict[stage]
+                    # forward only: 2*params*tokens, forward+backward: 6*params*tokens
+                    multiplier = 6 if stage in ["update_actor", "update_critic"] else 2
+                    flops = multiplier * n_params * stage_tokens
+                    metrics[f"perf/{stage}/tflops_per_sec_per_gpu"] = (flops / (timing_raw[stage] * n_gpus)) / 1e12
+
+    return metrics
 
 
 def compute_variance_proxy_metrics(batch: DataProto, gradient_norm: float = None) -> dict[str, float]:
