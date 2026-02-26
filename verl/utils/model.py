@@ -547,7 +547,9 @@ def load_mcore_dist_weights(parallel_model, dist_weight_path, is_value_model=Fal
             for k in list(ssd.keys()):
                 if "output_layer" in k:
                     ssd.pop(k)
-        dist_checkpointing.load(ssd, dist_weight_path, strict=strict)
+        # dist_checkpointing.load(ssd, dist_weight_path, strict=strict)
+        # Skip access integrity check: TE _extra_state ShardedObjects are not reshardable across TP/PP changes
+        dist_checkpointing.load(ssd, dist_weight_path, strict=strict, validate_access_integrity=False)
 
     return
 

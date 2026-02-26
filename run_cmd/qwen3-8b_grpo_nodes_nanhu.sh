@@ -77,28 +77,8 @@ echo "================================"
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1 # For megatron communication/computation overlapping
 export OMP_NUM_THREADS=4
-export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
-export MUSA_EXECUTION_TIMEOUT=3200000
-export ACCELERATOR_BACKEND="musa"
-export MCCL_PROTOS=2
-export MCCL_CHECK_POINTERS=0
 
-export MCCL_IB_GID_INDEX=3
-export MUSA_BLOCK_SCHEDULE_MODE=1
-export MCCL_ALGOS=1
-export MCCL_BUFFSIZE=20480000
-
-
-export ACCELERATE_USE_FSDP=1
-export FSDP_CPU_RAM_EFFICIENT_LOADING=1
-export VERL_LOGGING_LEVEL=INFO #INFO
-export HYDRA_FULL_ERROR=1
-#export MUSA_USERQ=1
-
-export MUSA_PATCH_PATH=/home/megatron-lm-musa-patch/
-export MEGATRON_PATH=/home/Megatron-LM
-export VERL_PATH=/mnt/seed17/001688/shenyichong/verl
-export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
+VERL_PATH=/mnt/seed17/001688/shenyichong/verl
 
 
 DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
@@ -120,7 +100,6 @@ CONFIG_PATH=$VERL_PATH/verl/trainer/config
 # # 解决保存问题
 # export TORCH_SAFE_SERIALIZATION=1
 
-export TOKENIZERS_PARALLELISM=false # 禁用 tokenizer并行化
 # export TORCH_NCCL_BLOCKING_WAIT=1
 #export TORCH_MCCL_BLOCKING_WAIT=1
 #export MCCL_TIMEOUT=600000  # 单位：毫秒（600000ms = 10分钟）
@@ -184,8 +163,8 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://127.0.0.1:8872' ray job submit \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.ppo_mini_batch_size=64 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
-    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=4 \
-    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=1 \
+    actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
+    actor_rollout_ref.actor.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.use_dist_checkpointing=True \
     actor_rollout_ref.actor.megatron.dist_checkpointing_path=$DIST_CKPT_PATH \
