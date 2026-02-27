@@ -296,6 +296,7 @@ class SGLangHttpServer:
         self.tokenizer_manager.server_status = ServerStatus.Up
 
     async def wake_up(self):
+        logger.warning("SGLangHttpServer wake_up...") # DEBUG
         if self.rollout_mode == RolloutMode.HYBRID:
             # Call all workers to switch between trainer mode and rollout mode.
             await asyncio.gather(*[worker.wake_up.remote() for worker in self.workers])
@@ -308,6 +309,7 @@ class SGLangHttpServer:
             logger.info("skip wake_up in standalone mode")
 
     async def sleep(self):
+        logger.warning("SGLangHttpServer sleep...") # DEBUG
         if self.rollout_mode == RolloutMode.HYBRID:
             await asyncio.gather(*[worker.sleep.remote() for worker in self.workers])
         elif self.rollout_mode == RolloutMode.COLOCATED:

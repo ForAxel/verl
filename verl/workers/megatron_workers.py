@@ -691,6 +691,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
     async def rollout_mode(self):
         """Context switch hybridengine to rollout mode."""
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker rollout_mode FUNC start, aggressive_empty_cache") # DEBUG
         set_expandable_segments(False)
 
         if self._is_offload_param:
@@ -746,6 +747,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         if self._is_offload_param:
             offload_megatron_model_to_cpu(self.actor.actor_module)
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker rollout_mode FUNC end, aggressive_empty_cache") # DEBUG
         if self.config.rollout.free_cache_engine:
             await self.rollout.resume(tags=["kv_cache"])
 
@@ -764,6 +766,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             model.train()
         # add empty cache after each compute
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker trainer_mode FUNC end, aggressive_empty_cache") # DEBUG
 
         # FIXME(@wuxibin): megatron+sglang failed with `expandable_segments:True` in ci,
         # can't reproduce it in dev environment, temporary disable it.
@@ -819,6 +822,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             log_gpu_memory_usage("After offload actor optimizer during update_actor", logger=logger)
 
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker update_actor FUNC end, aggressive_empty_cache") # DEBUG
         return output
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="rollout"))
@@ -872,6 +876,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         output = output.to("cpu")
         # clear kv cache
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker generate_sequences FUNC end, aggressive_empty_cache") # DEBUG
         return output
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="actor"))
@@ -891,6 +896,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
         data.meta_info["max_token_len"] = self.config.ref.log_prob_max_token_len_per_gpu
         data.meta_info["use_dynamic_bsz"] = self.config.ref.log_prob_use_dynamic_bsz
         data.meta_info["temperature"] = self.config.rollout.temperature
+        logger.info("ActorRolloutRefWorker compute_ref_log_prob FUNC, run self.ref_policy.compute_log_prob...") # DEBUG
         output, _, _ = self.ref_policy.compute_log_prob(data=data, calculate_entropy=False)
         output = DataProto.from_dict(tensors={"ref_log_prob": output})
         output = output.to("cpu")
@@ -898,6 +904,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             offload_megatron_model_to_cpu(self.ref_module)
             log_gpu_memory_usage("After offload ref params and grad during compute_ref_log_prob", logger=logger)
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker compute_ref_log_prob FUNC end, aggressive_empty_cache") # DEBUG
         return output
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="actor"))
@@ -945,6 +952,7 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
             offload_megatron_model_to_cpu(self.actor_module)
             log_gpu_memory_usage("After offload actor params and grad during compute_log_prob", logger=logger)
         aggressive_empty_cache(force_sync=True)
+        logger.info("ActorRolloutRefWorker compute_log_prob FUNC end, aggressive_empty_cache") # DEBUG
         return output
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
