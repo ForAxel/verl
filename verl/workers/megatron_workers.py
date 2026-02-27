@@ -1027,6 +1027,16 @@ class ActorRolloutRefWorker(MegatronWorker, DistProfilerExtension):
                 logger.warning(f"Failed to dump memory snapshot: {e}")
 
 
+    @register(dispatch_mode=Dispatch.ONE_TO_ALL)
+    def get_num_params(self) -> int:
+        """Return total trainable parameters for the actor model."""
+        if hasattr(self, "actor_module") and self.actor_module is not None:
+            if isinstance(self.actor_module, list):
+                return sum(p.numel() for m in self.actor_module for p in m.parameters() if p.requires_grad)
+            return sum(p.numel() for p in self.actor_module.parameters() if p.requires_grad)
+        return 0
+
+
 class AsyncActorRolloutRefWorker(ActorRolloutRefWorker):
     @register(dispatch_mode=Dispatch.DIRECT_ROLLOUT_METHOD)
     async def wake_up(self):
@@ -1333,6 +1343,16 @@ class CriticWorker(MegatronWorker, DistProfilerExtension):
         )
         if self._is_offload_param:
             offload_megatron_model_to_cpu(self.critic_module)
+
+
+    @register(dispatch_mode=Dispatch.ONE_TO_ALL)
+    def get_num_params(self) -> int:
+        """Return total trainable parameters for the critic model."""
+        if hasattr(self, "critic_module") and self.critic_module is not None:
+            if isinstance(self.critic_module, list):
+                return sum(p.numel() for m in self.critic_module for p in m.parameters() if p.requires_grad)
+            return sum(p.numel() for p in self.critic_module.parameters() if p.requires_grad)
+        return 0
 
 
 class RewardModelWorker(MegatronWorker, DistProfilerExtension):

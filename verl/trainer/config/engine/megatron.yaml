@@ -75,7 +75,7 @@ override_transformer_config:
 override_mcore_model_config: {}
 
 # oc.select: default val for ref.megatron.use_mbridge
-use_mbridge: True
+use_mbridge: False
 
 # oc.select: default val for ref.megatron.vanilla_mbridge
 vanilla_mbridge: True

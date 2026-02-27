@@ -54,7 +54,7 @@ env_vars:
   # MUSA_PATCH_PATH: "/home/verl-musa-patch"
   MUSA_PATCH_PATH: /home/megatron-lm-musa-patch
   MEGATRON_PATH: "/home/Megatron-LM"
-  VERL_PATH: "/home/verl"
+  VERL_PATH: "/mnt/seed17/001688/shenyichong/verl"
   PYTHONPATH: "$MEGATRON_PATH:$VERL_PATH:$PYTHONPATH"
   VLLM_USE_V1: "0"
   ACCELERATE_USE_FSDP: "1"

@@ -203,10 +203,10 @@ class SGLangHttpServer:
             **engine_kwargs,
         }
 
-        args["disable_overlap_schedule"] = True # ATTN True 则禁用 overlap
-        args["disable_cuda_graph"] = False # ATTN True 则禁用 cuda_graph
-        args["disable_custom_all_reduce"] = False # ATTN True 则禁用 custom_all_reduce
-
+        args["disable_overlap_schedule"] = False # ATTN 禁用 overlap
+        args["disable_cuda_graph"] = False # ATTN 禁用 cuda_graph
+        args["disable_custom_all_reduce"] = False # ATTN 禁用 custom_all_reduce
+        args["enable_single_batch_overlap"] = True
         # base_gpu_id = int(os.environ.get('RANK',0))
         # args['base_gpu_id'] = base_gpu_id
         # logger.warning(f"launch_server node_rank: {self.node_rank}, get base_gpu_id: {base_gpu_id}") # DEBUG
