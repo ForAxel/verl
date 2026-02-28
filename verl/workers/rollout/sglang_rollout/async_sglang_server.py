@@ -181,7 +181,7 @@ class SGLangHttpServer:
             "model_path": self.model_config.local_path,
             "dtype": self.config.dtype,
             "mem_fraction_static": self.config.gpu_memory_utilization,
-            "disable_cuda_graph": True, # self.config.enforce_eager,
+            "disable_cuda_graph": self.config.enforce_eager,
             "enable_memory_saver": True,
             "base_gpu_id": self.base_gpu_id,
             "gpu_id_step": 1,
@@ -210,11 +210,6 @@ class SGLangHttpServer:
         args["disable_cuda_graph"] = True # ATTN 禁用 cuda_graph
         args["disable_custom_all_reduce"] = False # ATTN 禁用 custom_all_reduce
         args["enable_single_batch_overlap"] = True
-        # -------------------------------------------------------------
-        # args["disable_overlap_schedule"] = True # ATTN 禁用 overlap
-        # args["disable_cuda_graph"] = True # ATTN 禁用 cuda_graph
-        # args["disable_custom_all_reduce"] = True # ATTN 禁用 custom_all_reduce
-
         # base_gpu_id = int(os.environ.get('RANK',0))
         # args['base_gpu_id'] = base_gpu_id
         # logger.warning(f"launch_server node_rank: {self.node_rank}, get base_gpu_id: {base_gpu_id}") # DEBUG
@@ -304,6 +299,7 @@ class SGLangHttpServer:
         self.tokenizer_manager.server_status = ServerStatus.Up
 
     async def wake_up(self):
+        logger.warning("SGLangHttpServer wake_up...") # DEBUG
         if self.rollout_mode == RolloutMode.HYBRID:
             # Call all workers to switch between trainer mode and rollout mode.
             await asyncio.gather(*[worker.wake_up.remote() for worker in self.workers])
@@ -316,6 +312,7 @@ class SGLangHttpServer:
             logger.info("skip wake_up in standalone mode")
 
     async def sleep(self):
+        logger.warning("SGLangHttpServer sleep...") # DEBUG
         if self.rollout_mode == RolloutMode.HYBRID:
             await asyncio.gather(*[worker.sleep.remote() for worker in self.workers])
         elif self.rollout_mode == RolloutMode.COLOCATED:
