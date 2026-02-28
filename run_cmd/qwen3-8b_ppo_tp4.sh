@@ -14,7 +14,8 @@ export HYDRA_FULL_ERROR=1
 
 # export MUSA_PATCH_PATH=/mnt/seed17/001688/zhaoping/Code/verl-musa-patch
 export MEGATRON_PATH=/home/Megatron-LM
-export VERL_PATH=/home/verl
+# export VERL_PATH=/home/verl
+export VERL_PATH=/mnt/seed17/001688/shenyichong/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
 
 
@@ -41,16 +42,16 @@ python3 -u -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=4 \
-    data.max_prompt_length=256 \
+    data.train_batch_size=16 \
+    data.max_prompt_length=512 \
     data.max_response_length=16 \
     data.filter_overlong_prompts=True \
     data.prompt_key=prompt \
     data.truncation='error' \
     actor_rollout_ref.model.path=$HF_MODEL_PATH \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=4 \
     actor_rollout_ref.actor.megatron.expert_model_parallel_size=1 \
@@ -88,4 +89,6 @@ python3 -u -m verl.trainer.main_ppo \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    2>&1 | tee ../logs/Qwen3-8B_ppo_tp4.log
+    2>&1 | tee ../logs/sglang_0206/Qwen3-8B_ppo_tp4.log
+    # > ../../logs/sglang_0206/Qwen3-8B_ppo_tp4.log 2>&1
+    

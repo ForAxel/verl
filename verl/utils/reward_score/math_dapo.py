@@ -167,6 +167,9 @@ def is_correct_minerva(
 ) -> tuple[bool, str]:
     """Check if the solution is correct according to Minerva criteria.
 
+    Tries the Answer: pattern first, then falls back to \\boxed{} extraction
+    to handle thinking models that may use either format.
+
     Args:
         solution_str: The solution string to check
         gt: The ground truth answer
@@ -176,18 +179,37 @@ def is_correct_minerva(
     Returns:
         Tuple of (is_correct, normalized_prediction)
     """
-    # Extract answer from solution
-    match = re.findall(answer_pattern, solution_str)
-    extracted_answer = match[-1] if match else "[INVALID]"
-    pred = normalize_final_answer(extracted_answer)
-
     # Process ground truth
     if gt_need_extract:
         gt = normalize_final_answer(remove_boxed(last_boxed_only_string(gt)))
     else:
         gt = normalize_final_answer(gt)
 
-    return (pred == gt), pred
+    # Try Answer: pattern first
+    match = re.findall(answer_pattern, solution_str)
+    if match:
+        extracted_answer = match[-1]
+        pred = normalize_final_answer(extracted_answer)
+        if pred == gt:
+            return True, pred
+
+    # Fallback: try \boxed{} extraction
+    boxed = last_boxed_only_string(solution_str)
+    if boxed is not None:
+        boxed_answer = remove_boxed(boxed)
+        pred = normalize_final_answer(boxed_answer)
+        if pred == gt:
+            return True, pred
+
+    # Neither pattern matched correctly
+    if match:
+        pred = normalize_final_answer(match[-1])
+    elif boxed is not None:
+        pred = normalize_final_answer(remove_boxed(boxed))
+    else:
+        pred = "[INVALID]"
+
+    return False, pred
 
 
 def is_correct_strict_box(

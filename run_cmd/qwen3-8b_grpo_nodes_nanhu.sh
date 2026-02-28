@@ -1,6 +1,3 @@
-# 单GPU启动，使用已有的CKPT数据
-# 模型、数据可以正常加载，卡在fit阶段
-
 set -x
 
 # Use Model_PATH environment variable to select model
@@ -25,7 +22,7 @@ fi
 
 # Generate unique experiment name with timestamp for separate ray logs
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-EXPERIMENT_TAG=${EXPERIMENT_TAG:-"megatron_sglang_32k_pp4"}
+EXPERIMENT_TAG=${EXPERIMENT_TAG:-"megatron_sglang_32k_tp4"}
 # Allow overriding experiment name for deterministic resume behavior.
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-"${MODEL_NAME}_${EXPERIMENT_TAG}_${TIMESTAMP}"}
 PROJECT_NAME="verl_grpo_dapo"
@@ -124,7 +121,7 @@ max_prompt_length=512
 # Keep total length within each model's context window.
 # Qwen3-8B-Base: 32768 max_position_embeddings -> max_response_length must be <= 32256 when prompt is 512.
 if [ "$Model_PATH" = "Qwen3-8B-Base" ]; then
-    max_response_length=32256
+    max_response_length=32255
 else
     max_response_length=32768
 fi
@@ -180,7 +177,6 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://127.0.0.1:8872' ray job submit \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=full \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=block \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=12 \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.num_layers_in_last_pipeline_stage=6 \
     actor_rollout_ref.actor.megatron.param_offload=True \
     actor_rollout_ref.actor.use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.ref.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
