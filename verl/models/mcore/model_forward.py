@@ -95,7 +95,12 @@ def model_forward_gen(vision_model: bool = False):
                 # cooporate with mbridge
                 input_args["input_ids"] = input_ids
                 input_args["attention_mask"] = attention_mask
-
+                
+            if input_ids_rmpad.size(0) == 1 or input_ids_rmpad.size(1) == 2:
+                rank = torch.distributed.get_rank()
+                torch.save([input_ids_rmpad,input_ids,attention_mask],f'/home/input_ids_rmpad_debug_{rank}.pt')
+                
+            #print(f'print-shape: {input_ids_rmpad.size()} {input_ids.size()} {pre_process} {post_process} {packed_seq_params}')
             output_orig = model(**input_args)
 
             if post_process and logits_processor is not None:

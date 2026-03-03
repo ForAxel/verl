@@ -185,6 +185,7 @@ class ServerAdapter(BaseRollout):
             tag: weights or kv_cache.
         """
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
+            logger.info("ServerAdapter resume memory...") # DEBUG
             await self._init_server_adapter()
             await self._engine.resume_memory_occupation(tags=tags)
             # torch.distributed.barrier(group=self.gloo_group_for_barrier)
@@ -192,9 +193,10 @@ class ServerAdapter(BaseRollout):
     async def release(self):
         """Release weights and kv cache in GPU memory."""
         if self.device_mesh["infer_tp"].get_local_rank() == 0 and self.config.free_cache_engine:
+            logger.info("ServerAdapter release memory...") # DEBUG
             await self._init_server_adapter()
             await self._engine.release_memory_occupation(tags=["kv_cache", "weights"])
-            # torch.distributed.barrier(group=self.gloo_group_for_barrier)
+            # torch.distributed.barrier(group=self.gloo_group_for_barrier) # 这里加了barrier会阻塞 因为sglang中Scheduler做release的时候加了barrier
 
     async def update_weights(self, weights: Generator[tuple[str, torch.Tensor], None, None], **kwargs):
         """

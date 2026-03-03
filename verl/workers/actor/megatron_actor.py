@@ -180,7 +180,7 @@ class MegatronPPOActor(BasePPOActor):
             self.mini_layer_topk_idx_list = []
 
         config = get_model_config(self.actor_module[0])
-        print(f"MegatronPPOActor __init__ config: {config}")
+        # print(f"MegatronPPOActor __init__ config: {config}")
         config.finalize_model_grads_func = finalize_model_grads
 
     def _validate_config(self, config) -> None:
@@ -410,14 +410,17 @@ class MegatronPPOActor(BasePPOActor):
         data.to(get_device_id())
         data.batch = data.batch.contiguous()
         mini_batch = data
+        print(f'attention_mask_0: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
         broadcast_dict_tensor(
             mini_batch.batch,
             src=mpu.get_pipeline_model_parallel_last_rank(),
             group=mpu.get_pipeline_model_parallel_group(),
         )
+        print(f'attention_mask_1: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
         mini_batch.to("cpu")
+        print(f'attention_mask_2: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
         # split into micro-batches
-        mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
+        #mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
         self.has_multi_modal_inputs = "multi_modal_inputs" in mini_batch.non_tensor_batch.keys()
         if self.has_multi_modal_inputs:
             mini_batch.batch["multi_modal_inputs"] = mini_batch.non_tensor_batch["multi_modal_inputs"]
@@ -458,7 +461,7 @@ class MegatronPPOActor(BasePPOActor):
             total_seqlen = micro_batch_size * seq_len
         # compute input shapes for pp stages
         n_micro_batch = len(micro_batches)
-
+        print(f'n_micro_batch:++ {n_micro_batch}')
         forward_backward_func = get_forward_backward_func()
 
         def loss_func(output, data, meta_info):

@@ -236,6 +236,7 @@ def get_seqlen_balanced_partitions(seqlen_list: list[int], k_partitions: int, eq
         AssertionError: If equal_size is True and len(seqlen_list) is not divisible by k_partitions.
         AssertionError: If any resulting partition is empty.
     """
+    print(f"~~: {seqlen_list} {k_partitions}")
     assert len(seqlen_list) >= k_partitions, f"number of items:[{len(seqlen_list)}] < k_partitions:[{k_partitions}]"
 
     def _check_and_sort_partitions(partitions):

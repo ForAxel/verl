@@ -1,0 +1,68 @@
+working_dir: ./
+excludes: ["/.git/",'extra_data','.json','checkpoints','output','outputs','logs','.log','.safetensors','.pt','log_0120']
+env_vars:
+  # ====== MUSA log ======
+  # MUSA_LOG: "0xf"
+  # ====== xpu debug ======
+  MCCL_LIB: "/usr/local/musa/lib/libmccl.so"
+  #XPU_TIMER_TIMELINE_PATH: "/home/verl/run_cmd/xputimer_debug"
+  # XPU_TIMER_HANG_TIMEOUT: "240" # Hang检测超时设置小于kernel execution timeout （单位：秒？）
+  #XPU_TIMER_HANG_TIMEOUT: "60"
+  #XPU_TIMER_PORT: "18889"
+  # ======
+  MUSA_ERROR_DUMP_VERBOSE: "1" # 用于 musa dump 调试
+  # MCCL_DEBUG: "INFO"       # 启用MCCL的详细信息输出
+  # MCCL_DEBUG_SUBSYS: "ALL" # 输出所有子系统的日志（可选，信息量巨大）
+  # PYTHONVERBOSE: "1"       # 让Python输出更多解释器相关信息
+  # ====== 输出详细进程信息DEBUG ====== 单卡的时候添加这部分信息报错
+  # TORCH_DISTRIBUTED_DEBUG: "DETAIL"
+  # TORCH_CPP_LOG_LEVEL: "INFO"
+  # MCCL_DEBUG: "INFO" # MCCL 调试信息输出
+  # MCCL_P2P_DISABLE: "1" # 临时禁用点对点通信
+  MUSA_LAUNCH_BLOCKING: "0"
+  # MUSA_EXECUTION_TIMEOUT: "30000" # 单位：毫秒
+  MUSA_EXECUTION_TIMEOUT: "3000000" # 单位：毫秒 3000秒
+  # ==================
+  # ====== 强制同步操作 ======
+  # MCCL_ASYNC: "0"
+  # MCCL_FORCE_SYNC: "1"
+  # MCCL_ASYNC_ENABLE: "0" # 禁用异步操作
+  # ==================
+  # ==== 通信超时与错误处理
+  MCCL_TIMEOUT: "180"
+  MCCL_ASYNC_ERROR_HANDLING: "1"
+  # =========
+  TOKENIZERS_PARALLELISM: "false" # DEBUG 禁用 tokenizer并行化
+  # TORCH_NCCL_BLOCKING_WAIT: "1" # DEBUG
+  TORCH_MCCL_BLOCKING_WAIT: "1" # DEBUG
+  # NCCL_TIMEOUT: "600000"  # DEBUG 单位：毫秒（600000ms = 10分钟）
+  MCCL_TIMEOUT: "600000"
+  RAY_BACKEND_LOG_LEVEL: "debug" # DEBUG
+  RAY_OVERRIDE_JOB_RUNTIME_ENV: "1"
+  MUSA_VISIBLE_DEVICES: "0,1,2,3,4,5,6,7"
+  ACCELERATOR_BACKEND: "musa"
+  MCCL_PROTOS: "2"
+  MCCL_CHECK_POINTERS: "0"
+  VERL_LOGGING_LEVEL: "INFO"
+  HYDRA_FULL_ERROR: "1"
+  # MUSA_PATCH_PATH: "/home/verl-musa-patch"
+  MUSA_PATCH_PATH: "/home/megatron-lm-musa-patch"
+  MEGATRON_PATH: "/home/Megatron-LM"
+  VERL_PATH: "/home/verl"
+  PYTHONPATH: "/home/verl:/home/Megatron-LM:$PYTHONPATH"
+  VLLM_USE_V1: "0"
+  ACCELERATE_USE_FSDP: "1"
+  FSDP_CPU_RAM_EFFICIENT_LOADING: "1"
+  LD_LIBRARY_PATH: "/usr/local/musa/lib:$LD_LIBRARY_PATH"
+  MCCL_SOCKET_IFNAME: "bond0" # 添加
+  GLOO_SOCKET_IFNAME: "bond0"
+  # RAY_DEBUG_POST_MORTEM: "1"
+  MCCL_IB_HCA: "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"
+  # MCCL_IB_HCA: "mlx5_bond_2,mlx5_bond_3,mlx5_bond_4,mlx5_bond_5" 
+  MCCL_ALGOS: "1"
+  MCCL_IB_GID_INDEX: "3"
+  MCCL_BUFFSIZE: "20971520"
+  MUSA_BLOCK_SCHEDULE_MODE: "1"
+  MUSA_BLOCK_DISTRIBUTION_GRANULARITY: "0"
+  MCCL_MAX_NCHANNELS: "1"
+  # PYTORCH_MUSA_ALLOC_CONF: "expandable_segments:True"

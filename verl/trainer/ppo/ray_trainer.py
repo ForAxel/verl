@@ -1438,7 +1438,7 @@ class RayPPOTrainer:
                 # pass global_steps to trace
                 gen_batch.meta_info["global_steps"] = self.global_steps
                 gen_batch_output = gen_batch.repeat(
-                    repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True
+                    repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=False
                 )
 
                 is_last_step = self.global_steps >= self.total_training_steps
@@ -1498,9 +1498,13 @@ class RayPPOTrainer:
 
                             del rm_scores, gen_baseline_batch, gen_baseline_output
                     # repeat to align with repeated responses in rollout
-                    batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
+                    batch = batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=False)
                     batch = batch.union(gen_batch_output)
-
+                    
+                    
+                    p = '/home/30b_gen_32k_no_graph_dapo_64*8.pt'
+                    torch.save(batch,p)
+                    #batch = torch.load(p,weights_only=False)
                     if "response_mask" not in batch.batch.keys():
                         batch.batch["response_mask"] = compute_response_mask(batch)
                     # Balance the number of valid tokens across DP ranks.

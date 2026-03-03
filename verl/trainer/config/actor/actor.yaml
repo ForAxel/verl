@@ -99,7 +99,7 @@ use_prefix_grouper: false
 
 # Whether to use torch.compile()
 # oc.select: the default val for ref.use_torch_compile
-use_torch_compile: true
+use_torch_compile: False
 
 # KL loss coefficient when use_kl_loss is enabled. For GRPO
 kl_loss_coef: 0.001

@@ -49,7 +49,7 @@ def main(config):
     """
     # Automatically set `config.trainer.device = npu` when running on Ascend NPU.
     print(f"config type: {type(config)}")
-    OmegaConf.save(config, "/home/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
+    #OmegaConf.save(config, "/home/verl/run_cmd/main_ppo_config/main_ppo_config.yaml")
     auto_set_device(config)
 
     run_ppo(config)
