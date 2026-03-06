@@ -232,7 +232,7 @@ class MegatronWorker(Worker):
 
         if torch.distributed.get_rank() == 0:
             if tf_config is not None:
-                print(f"TF config: {tf_config}")
+                print(f"MegatronWorker CLASS TF config: {tf_config}")
         self.hf_config = hf_config
         self.tf_config = tf_config
 

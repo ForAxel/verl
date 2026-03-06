@@ -34,7 +34,8 @@ env_vars:
   # ==================
   # ==== 通信超时与错误处理
   MCCL_TIMEOUT: "180"
-  MCCL_ASYNC_ERROR_HANDLING: "1"
+  # MCCL_ASYNC_ERROR_HANDLING: "1"
+  TORCH_MCCL_ASYNC_ERROR_HANDLING: "1"
   # =========
   TOKENIZERS_PARALLELISM: "false" # DEBUG 禁用 tokenizer并行化
   # TORCH_NCCL_BLOCKING_WAIT: "1" # DEBUG

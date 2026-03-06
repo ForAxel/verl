@@ -531,7 +531,7 @@ def noop_context() -> Any:
 
 
 def support_distributed_convert(hf_config: AutoConfig) -> bool:
-    for arch in ["DeepseekV3ForCausalLM", "Qwen3MoeForCausalLM", "Qwen2MoeForCausalLM"]:
+    for arch in ["DeepseekV3ForCausalLM", "Qwen3MoeForCausalLM", "Qwen2MoeForCausalLM", "DeepseekV2ForCausalLM"]:
         if arch in hf_config.architectures:
             return True
     return False
@@ -544,13 +544,16 @@ def convert_hf_to_mcore(
     if len(os.listdir(output_path)) > 0 and not test:
         print(f"Output path {output_path} is not empty, skipping conversion")
         return
-
+    print(f"hf_model_path: {hf_model_path}, output_path: {output_path}")
     # init torch distributed and mpu
-    # if "WORLD_SIZE" not in os.environ:
-    os.environ["RANK"] = "0"
-    os.environ["WORLD_SIZE"] = "1"
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    if "WORLD_SIZE" not in os.environ:
+        os.environ["RANK"] = "0"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "12355"
+    else:
+        print(f"RANK: {os.environ['RANK']}, WORLD_SIZE: {os.environ['WORLD_SIZE']}, MASTER_PORT: {os.environ['MASTER_PORT']}")
+        # assert 1==2
 
     torch.distributed.init_process_group("mccl")
 
@@ -572,7 +575,7 @@ def convert_hf_to_mcore(
 
     # init hf config
     hf_config = AutoConfig.from_pretrained(hf_model_path, trust_remote_code=trust_remote_code)
-    print(hf_config, flush=True)
+    # print(hf_config, flush=True)
 
     if repatch:
         if hf_config.architectures[0] == "DeepseekV3ForCausalLM":
@@ -645,6 +648,10 @@ def convert_hf_to_mcore(
         layer_end = pipeline_cumsum[pp_rank]
         if "DeepseekV3ForCausalLM" in hf_config.architectures:
             numel_partial: int = convert_checkpoint_from_transformers_to_megatron_dpskv3(
+                hf_model, model[0].module, hf_config, tfconfig=tfconfig, layer_start_end=(layer_start, layer_end)
+            )
+        elif "DeepseekV2ForCausalLM" in hf_config.architectures:
+            numel_partial: int = convert_checkpoint_from_transformers_to_megatron_dpskv2(
                 hf_model, model[0].module, hf_config, tfconfig=tfconfig, layer_start_end=(layer_start, layer_end)
             )
         elif "Qwen3MoeForCausalLM" in hf_config.architectures or "Qwen2MoeForCausalLM" in hf_config.architectures:
