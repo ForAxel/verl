@@ -1,5 +1,8 @@
 working_dir: ./
 excludes: ["/.git/",'extra_data','.json','checkpoints','output','outputs','logs','.log','.safetensors','.pt','log_0120']
+pip:
+  - math-verify
+  - --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 env_vars:
   # ====== MUSA log ======
   # MUSA_LOG: "0xf"
@@ -44,13 +47,17 @@ env_vars:
   MCCL_PROTOS: "2"
   MCCL_CHECK_POINTERS: "0"
   VERL_LOGGING_LEVEL: "INFO"
-  VERL_DEBUG_P2P: "1"  # Enable P2P shape debug logging to diagnose MCCL variable_seq_lengths bug
   HYDRA_FULL_ERROR: "1"
   # MUSA_PATCH_PATH: "/home/verl-musa-patch"
-  MUSA_PATCH_PATH: "/home/megatron-lm-musa-patch"
+  MUSA_PATCH_PATH: "/mnt/seed17/001688/yangweiwei/0226/megatron-lm-musa-patch"
   MEGATRON_PATH: "/home/Megatron-LM"
   VERL_PATH: "/mnt/seed17/001688/shenyichong/verl"
   PYTHONPATH: "/mnt/seed17/001688/shenyichong/verl:/home/Megatron-LM:$PYTHONPATH"
+  # ====== Reward Debug Settings ======
+  USE_ZERO2ONE_REWARD: "1"
+  REWARD_LOG_DIR: "/mnt/seed17/001688/shenyichong/verl/reward_logs"
+  printfile: "qwen3_30b_debug"
+  # ==================
   VLLM_USE_V1: "0"
   ACCELERATE_USE_FSDP: "1"
   FSDP_CPU_RAM_EFFICIENT_LOADING: "1"
@@ -58,13 +65,13 @@ env_vars:
   MCCL_SOCKET_IFNAME: "bond0" # 添加
   GLOO_SOCKET_IFNAME: "bond0"
   # RAY_DEBUG_POST_MORTEM: "1"
-  MCCL_IB_HCA: "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"  # commented out: let MCCL auto-detect IB devices (varies per node)
+  MCCL_IB_HCA: "mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_6:1,mlx5_7:1,mlx5_8:1,mlx5_9:1"
   # MCCL_IB_HCA: "mlx5_bond_2,mlx5_bond_3,mlx5_bond_4,mlx5_bond_5" 
   MCCL_ALGOS: "1"
   MCCL_IB_GID_INDEX: "3"
   MCCL_BUFFSIZE: "20971520"
   MUSA_BLOCK_SCHEDULE_MODE: "1"
   MUSA_BLOCK_DISTRIBUTION_GRANULARITY: "0"
-  MCCL_MAX_NCHANNELS: "1"
+  MCCL_MAX_NCHANNELS: "14"
   # PYTORCH_MUSA_ALLOC_CONF: "expandable_segments:True"
   TENSORBOARD_DIR: "/mnt/seed17/001688/shenyichong/verl/tensorboard_log"

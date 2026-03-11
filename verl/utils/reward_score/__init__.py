@@ -56,10 +56,26 @@ def default_compute_score(
 
         # from . import math_verify
         # res = math_verify.compute_score(solution_str, ground_truth)
-    elif data_source in ["math_dapo", "math", "math_dapo_reasoning"] or data_source.startswith("aime"):
-        from . import math_dapo
+    elif data_source in ["math_dapo", "math", "math_dapo_reasoning", "021_amt_math_d_chat_train", "021_r1_aime24_opencompass_chat_val", "021_r1_aime25_opencompass_chat_val"] or data_source.startswith("aime"):
+        import os
+        # Check if we should use the new zero2one_reward logic
+        if data_source in ["021_amt_math_d_chat_train", "021_r1_aime24_opencompass_chat_val", "021_r1_aime25_opencompass_chat_val"] or os.getenv("USE_ZERO2ONE_REWARD") == "1":
+            from . import zero2one_reward
+            # Ensure ground_truth is extracted if it's a dict (as seen in the parquet)
+            actual_gt = ground_truth
+            if isinstance(ground_truth, dict) and 'ground_truth' in ground_truth:
+                actual_gt = str(ground_truth['ground_truth'])
 
-        res = math_dapo.compute_score(solution_str, ground_truth)
+            res = zero2one_reward.compute_score(
+                solution_str=solution_str,
+                ground_truth=actual_gt,
+                data_source=data_source,
+                extra_info=extra_info,
+                **kwargs
+            )
+        else:
+            from . import math_dapo
+            res = math_dapo.compute_score(solution_str, ground_truth)
     elif data_source in [
         "numina_aops_forum",
         "numina_synthetic_math",

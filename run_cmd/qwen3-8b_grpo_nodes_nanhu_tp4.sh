@@ -2,7 +2,7 @@ set -x
 
 # Use Model_PATH environment variable to select model
 # Options: "Qwen3-8B" or "Qwen3-8B-Base"
-Model_PATH=${Model_PATH:-"Qwen3-8B"}
+Model_PATH=${Model_PATH:-"Qwen3-8B-Base"}
 # Control whether to resume from an RL checkpoint.
 # 1: use LOAD_CKPT_DIR if valid; 0: always start from pretrained init (DIST_CKPT_PATH/HF).
 ENABLE_CKPT_RESUME=${ENABLE_CKPT_RESUME:-0}
@@ -150,7 +150,7 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://127.0.0.1:8872' ray job submit \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
     data.val_files=$test_files \
-    data.train_batch_size=64 \
+    data.train_batch_size=4 \
     data.max_prompt_length=$max_prompt_length \
     data.max_response_length=$max_response_length \
     data.filter_overlong_prompts=True \
@@ -158,7 +158,7 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://127.0.0.1:8872' ray job submit \
     data.truncation='error' \
     actor_rollout_ref.model.path=$HF_MODEL_PATH \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=1 \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=4 \

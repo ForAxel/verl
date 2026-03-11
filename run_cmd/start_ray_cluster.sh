@@ -74,37 +74,53 @@ else
     echo "Parsing ~/.ssh/config for worker nodes..."
     SEEN_REMOTE=""
     ALL_HOSTS=$(grep -E "^[[:space:]]*Host " "${SSH_CONFIG}" | sed 's/^[[:space:]]*Host[[:space:]]*//' | tr ' ' '\n' | sort -u)
-    while read -r name; do
+    for name in $ALL_HOSTS; do
       [ -z "$name" ] && continue
       [[ "$name" == *"*"* ]] && continue
       [[ "$name" == "localhost" ]] && continue
-      # Skip hosts with "master" in the name (common pattern)
-      [[ "$name" == *"master"* ]] && echo "  Skipping master host: $name" && continue
       
       # Try to verify this is a different machine (optional check)
-      remote_host=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes "$name" hostname -s 2>&1)
+      remote_host=$(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes "$name" hostname -s 2>/dev/null || true)
       ssh_exit=$?
-      if [ $ssh_exit -ne 0 ]; then
-        echo "  Warning: Cannot SSH to $name (will still try to start Ray worker): ${remote_host}"
-        # Still add it - SSH might fail but Ray start might work
+      
+      # Skip if it's the current host
+      if [ -n "$remote_host" ] && [ "$remote_host" = "$CURRENT_HOST" ]; then
+         echo "  Skipping current host: $name"
+         continue
+      fi
+
+      # Skip hosts with "master" in the name (common pattern)
+      if [[ "$name" == *"master"* ]]; then
+        if [ -n "$remote_host" ] && [ "$remote_host" = "$CURRENT_HOST" ]; then
+           echo "  Skipping current host (master): $name"
+           continue
+        fi
+        # If it has "master" in name, still skip it as per user's common pattern
+        echo "  Skipping potential master host: $name"
+        continue
+      fi
+
+      if [ -z "$remote_host" ]; then
+        echo "  Warning: Cannot SSH to $name without password (will still try to start Ray worker)"
+        # Still add it - SSH might fail in batch mode but work in the final loop
         WORKER_NODES+=("$name")
         continue
       fi
       
-      if [ -z "$remote_host" ] || [ "$remote_host" = "$CURRENT_HOST" ]; then
+      if [ "$remote_host" = "$CURRENT_HOST" ]; then
         echo "  Skipping $name (same host as master: ${remote_host:-unknown})"
         continue
       fi
       
       # One worker per distinct machine (skip if we already have this remote_host)
-      if [[ " ${SEEN_REMOTE} " == *" ${remote_host} "* ]]; then
+      if [ -n "$remote_host" ] && [[ " ${SEEN_REMOTE} " == *" ${remote_host} "* ]]; then
         echo "  Skipping $name (duplicate of ${remote_host})"
         continue
       fi
-      SEEN_REMOTE="${SEEN_REMOTE} ${remote_host}"
+      [ -n "$remote_host" ] && SEEN_REMOTE="${SEEN_REMOTE} ${remote_host}"
       echo "  Found worker: $name (hostname: ${remote_host})"
       WORKER_NODES+=("$name")
-    done <<< "$ALL_HOSTS"
+    done
     echo "Discovered ${#WORKER_NODES[@]} worker(s) from ~/.ssh/config"
   else
     echo "~/.ssh/config not found, skipping worker discovery"
