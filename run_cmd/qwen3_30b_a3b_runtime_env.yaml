@@ -74,4 +74,6 @@ env_vars:
   MUSA_BLOCK_DISTRIBUTION_GRANULARITY: "0"
   MCCL_MAX_NCHANNELS: "14"
   # PYTORCH_MUSA_ALLOC_CONF: "expandable_segments:True"
-  TENSORBOARD_DIR: "/mnt/seed17/001688/shenyichong/verl/tensorboard_log"
+  # TENSORBOARD_DIR: "/mnt/seed17/001688/shenyichong/verl/tensorboard_log"
+  TENSORBOARD_DIR_BASE: "/mnt/seed17/001688/shenyichong/verl/tensorboard_log"
+  MUSA_DEBUG_DIR: "/mnt/seed17/001688/shenyichong/verl/musa_debug"

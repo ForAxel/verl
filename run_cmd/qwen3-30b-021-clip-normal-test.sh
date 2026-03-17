@@ -144,9 +144,9 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://localhost:8872' ray job submit \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${actor_ppo_max_token_len} \
     actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
-    actor_rollout_ref.actor.clip_ratio_low=0.0 \
-    actor_rollout_ref.actor.clip_ratio_high=0.0 \
-    actor_rollout_ref.actor.clip_ratio_c=1.001 \
+    actor_rollout_ref.actor.clip_ratio_low=0.2 \
+    actor_rollout_ref.actor.clip_ratio_high=0.2 \
+    actor_rollout_ref.actor.clip_ratio_c=3.0 \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.actor.kl_loss_coef=0.0 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \

@@ -7,7 +7,7 @@ HF_MODEL_PATH='/mnt/seed17/001688/rl_models/Qwen3-30B-A3B-Instruct-2507'
 DIST_CKPT_PATH='/mnt/seed17/001688/rl_models/MCORE/Qwen3-30B-A3B-Instruct-2507'
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 MODEL_NAME=${MODEL_NAME:-"Qwen3-30B-A3B-Instruct-2507"}
-EXPERIMENT_NAME="${MODEL_NAME}_megatron_sglang_32k_tp1_pp4_${TIMESTAMP}"
+EXPERIMENT_NAME="${MODEL_NAME}_megatron_sglang_32k_tp4_pp4_${TIMESTAMP}"
 
 # export MUSA_VISIBLE_DEVICES='0,1'
 export MUSA_VISIBLE_DEVICES='0,1,2,3,4,5,6,7'
@@ -147,8 +147,9 @@ JOB_OUTPUT=$(RAY_ADDRESS='http://localhost:8872' ray job submit \
     actor_rollout_ref.actor.clip_ratio_low=0.0 \
     actor_rollout_ref.actor.clip_ratio_high=0.0 \
     actor_rollout_ref.actor.clip_ratio_c=1.001 \
-    actor_rollout_ref.actor.use_kl_loss=False \
-    actor_rollout_ref.actor.kl_loss_coef=0.0 \
+    actor_rollout_ref.actor.policy_loss.loss_mode="gpg" \
+    actor_rollout_ref.actor.use_kl_loss=True \
+    actor_rollout_ref.actor.kl_loss_coef=0.001 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \

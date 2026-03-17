@@ -1129,6 +1129,41 @@ def compute_policy_loss(
     # Clamp negative_approx_kl for stability
     negative_approx_kl = torch.clamp(negative_approx_kl, min=-20.0, max=20.0)
     ratio = torch.exp(negative_approx_kl)
+
+    # --- MUSA DEBUG: Simplified Ratio Diagnostics ---
+    if torch.distributed.get_rank() == 0:
+        import os
+        mask_bool = response_mask.bool()
+        total_valid = mask_bool.sum().item()
+        
+        if total_valid > 0:
+            valid_ratios = ratio[mask_bool]
+            valid_log = log_prob[mask_bool]
+            valid_old = old_log_prob[mask_bool]
+            
+            debug_dir = os.environ.get("MUSA_DEBUG_DIR", "/mnt/seed17/001688/shenyichong/verl/musa_debug/")
+            if debug_dir:  # Ensure it's not empty string
+                os.makedirs(debug_dir, exist_ok=True)
+            log_file = os.path.join(debug_dir, "musa_ratio_debug.log")
+            
+            with open(log_file, "a") as f:
+                f.write(f"\n--- New Batch (Valid tokens: {total_valid}) ---\n")
+                
+                # Distribution buckets
+                buckets = [(0.95, 1.05), (0.90, 1.10), (0.85, 1.15)]
+                f.write("Ratio Distribution:\n")
+                for lo, hi in buckets:
+                    count = ((valid_ratios >= lo) & (valid_ratios <= hi)).sum().item()
+                    f.write(f"  [{lo:.2f}, {hi:.2f}]: {count/total_valid*100:.2f}%\n")
+                
+                f.write(f"  Exact 1.0 : {(valid_ratios == 1.0).sum().item()/total_valid*100:.2f}%\n")
+                
+                # Sample values
+                f.write("\nSample Values (first 5):\n")
+                for i in range(min(5, total_valid)):
+                    f.write(f"  tok[{i}]: log_prob={valid_log[i]:.6f}, old_log_prob={valid_old[i]:.6f}, ratio={valid_ratios[i]:.6f}\n")
+    # --- END MUSA DEBUG ---
+
     ppo_kl = verl_F.masked_mean(-negative_approx_kl, response_mask)
 
     pg_losses1 = -advantages * ratio

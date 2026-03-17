@@ -503,6 +503,8 @@ class MegatronPPOActor(BasePPOActor):
             loss_agg_mode = self.config.loss_agg_mode
             # compute policy loss
             log_prob = log_probs[:, -response_length - 1 : -1].contiguous()
+            # assign log_prob to old_log_probs to make it on-policy
+            data["old_log_probs"] = log_prob.detach()
             ret_entropy = None
             stats = {}
             if not forward_only:
