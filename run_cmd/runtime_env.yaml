@@ -65,6 +65,6 @@ env_vars:
   MCCL_BUFFSIZE: "20971520"
   MUSA_BLOCK_SCHEDULE_MODE: "1"
   MUSA_BLOCK_DISTRIBUTION_GRANULARITY: "0"
-  MCCL_MAX_NCHANNELS: "1"
+  MCCL_MAX_NCHANNELS: "14"
   # PYTORCH_MUSA_ALLOC_CONF: "expandable_segments:True"
   TENSORBOARD_DIR: "/mnt/seed17/001688/shenyichong/verl/tensorboard_log"

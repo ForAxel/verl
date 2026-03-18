@@ -27,7 +27,8 @@ if [ "$RANK" -eq 0 ]; then
     # bash $WORK_DIR/run_cmd/qwen3-30b-021.sh 2>&1
     # bash $WORK_DIR/run_cmd/qwen3-30b-021-clip-normal-test.sh 2>&1
     # bash $WORK_DIR/run_cmd/qwen3-30b-021-noclip-test.sh 2>&1
-    bash $WORK_DIR/run_cmd/qwen3-30b-021-assign-logp.sh 2>&1
+    # bash $WORK_DIR/run_cmd/qwen3-30b-021-assign-logp.sh 2>&1
+    bash $WORK_DIR/run_cmd/qwen3-30b-021-precision-test.sh 2>&1
     
     echo "$(date '+%Y-%m-%d-%H-%M-%S'), Training done."
 else
