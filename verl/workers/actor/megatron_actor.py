@@ -407,28 +407,20 @@ class MegatronPPOActor(BasePPOActor):
         """
         # broadcast from last pp rank to all other pp ranks
         # TODO: actually, we just need to control the sampling order.
-        data.to(get_device_id())
+        ##(HACK) kechun.wu: use cpu/gloo backend to fix the wrong attention_mask when enable PP
+        #data.to(get_device_id())
         data.batch = data.batch.contiguous()
         mini_batch = data
-        print(f'attention_mask_0: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
         broadcast_dict_tensor(
             mini_batch.batch,
             src=mpu.get_pipeline_model_parallel_last_rank(),
             group=mpu.get_pipeline_model_parallel_group(),
         )
-        print(f'attention_mask_1: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
-
-        # # MUSA WORKAROUND: Force CPU to wait for MCCL broadcast to finish
-        # # before copying memory to CPU, preventing a race condition.
-        # if hasattr(torch, "musa") and torch.musa.is_available():
-        #     torch.musa.synchronize()
-        # elif torch.cuda.is_available():
-        #     torch.cuda.synchronize()
-
-        mini_batch.to("cpu")
-        print(f'attention_mask_2: {(mini_batch.batch["attention_mask"] == True).sum(-1)}')
+        
+        #(HACK) kechun.wu: use cpu/gloo backend to fix the wrong attention_mask when enable PP
+        #mini_batch.to("cpu")
         # split into micro-batches
-        # mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
+        #mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
         self.has_multi_modal_inputs = "multi_modal_inputs" in mini_batch.non_tensor_batch.keys()
         if self.has_multi_modal_inputs:
             mini_batch.batch["multi_modal_inputs"] = mini_batch.non_tensor_batch["multi_modal_inputs"]

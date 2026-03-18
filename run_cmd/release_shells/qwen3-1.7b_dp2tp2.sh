@@ -11,12 +11,14 @@ export MCCL_CHECK_POINTERS=0
 export VERL_LOGGING_LEVEL=INFO #INFO
 export HYDRA_FULL_ERROR=1
 export MEGATRON_PATH=/home/Megatron-LM
-export VERL_PATH=/home/verl
+export VERL_PATH=/mnt/seed17/001688/shenyichong/verl
 export PYTHONPATH=${MEGATRON_PATH}:${VERL_PATH}:${MUSA_PATCH_PATH}:$PYTHONPATH
 
-DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
-train_files=$DATASET_PATH/math_train.parquet
-test_files=$DATASET_PATH/math_test.parquet
+# DATASET_PATH="/mnt/seed17/001688/zhaoping/Data/AM-Thinking-v1-RL-Dataset"
+# train_files=$DATASET_PATH/math_train.parquet
+# test_files=$DATASET_PATH/math_test.parquet
+train_files="/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/dapo_train_16k.parquet"
+test_files="/mnt/seed17/001688/shenyichong/verl-musa-patch/examples/data/dapo_val_1k.parquet"
 
 # 需要指定到 Verl 中对应config路径
 CONFIG_PATH=$VERL_PATH/verl/trainer/config
@@ -25,7 +27,7 @@ env PYTHONPATH="$PYTHONPATH" \
     MUSA_VISIBLE_DEVICES="$MUSA_VISIBLE_DEVICES" \
     ACCELERATOR_BACKEND="$ACCELERATOR_BACKEND" \
     RAY_LOGGING_LEVEL=WARNING \
-    RAY_DEDUP_LOGS=0 \
+    RAY_DEDUP_LOGS=1 \
     RAY_ADDRESS="localhost:65379" \
 python3 -u -m verl.trainer.main_ppo \
     --config-path="$CONFIG_PATH" \
