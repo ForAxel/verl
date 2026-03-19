@@ -206,19 +206,20 @@ class SGLangHttpServer:
             **engine_kwargs,
         }
 
-        args["disable_overlap_schedule"] = False # ATTN 禁用 overlap
-        args["disable_cuda_graph"] = True # ATTN 禁用 cuda_graph
-        args["disable_custom_all_reduce"] = True # ATTN 禁用 custom_all_reduce
-        args["enable_single_batch_overlap"] = True 
+        # args["disable_overlap_schedule"] = False # ATTN 禁用 overlap
+        # args["disable_cuda_graph"] = True # ATTN 禁用 cuda_graph
+        # args["disable_custom_all_reduce"] = True # ATTN 禁用 custom_all_reduce
+        # args["enable_single_batch_overlap"] = True 
         
-        # # test the fastest rollout config  
-        # args["disable_overlap_schedule"] = True # ATTN True 则禁用 overlap
-        # args["disable_cuda_graph"] = False # ATTN True 则禁用 cuda_graph
-        # args["disable_custom_all_reduce"] = False # ATTN True 则禁用 
-        # args["disable_radix_cache"] = True # ATTN True 则禁用 custom_all_reduce
-        # args["load_format"] = 'auto'
-        # args['enable_torch_compile'] = True
-        # args['max_running_requests'] = 128
+        # test the fastest rollout config  
+        args["disable_overlap_schedule"] = False # ATTN True 则禁用 overlap
+        args["disable_cuda_graph"] = True # ATTN True 则禁用 cuda_graph
+        args["disable_custom_all_reduce"] = True # ATTN True 则禁用 
+        args["enable_single_batch_overlap"] = True 
+        args["disable_radix_cache"] = False # ATTN True 则禁用 custom_all_reduce
+        args["load_format"] = 'auto'
+        args['enable_torch_compile'] = True
+        args['max_running_requests'] = 128
         
         # base_gpu_id = int(os.environ.get('RANK',0))
         # args['base_gpu_id'] = base_gpu_id
