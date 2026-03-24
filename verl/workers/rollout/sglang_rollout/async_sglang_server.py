@@ -203,10 +203,16 @@ class SGLangHttpServer:
             **engine_kwargs,
         }
 
-        args["disable_overlap_schedule"] = False # ATTN 禁用 overlap
+        args["disable_overlap_schedule"] = True  # ATTN 禁用 overlap
         args["disable_cuda_graph"] = False # ATTN 禁用 cuda_graph
         args["disable_custom_all_reduce"] = False # ATTN 禁用 custom_all_reduce
-        args["enable_single_batch_overlap"] = True
+        # args["enable_single_batch_overlap"] = True
+        args["chunked_prefill_size"] = -1
+
+        if "deepseek-v2" in self.model_config.local_path.lower():
+            args["enable_dp_attention"] = True
+            args["moe_runner_backend"] = "deep_gemm"
+
         # base_gpu_id = int(os.environ.get('RANK',0))
         # args['base_gpu_id'] = base_gpu_id
         # logger.warning(f"launch_server node_rank: {self.node_rank}, get base_gpu_id: {base_gpu_id}") # DEBUG
@@ -227,6 +233,11 @@ class SGLangHttpServer:
         if "enable_weights_cpu_backup" in [f.name for f in dataclasses.fields(ServerArgs)]:
             enable_weights_cpu_backup = True if self.rollout_mode == RolloutMode.COLOCATED else False
             args["enable_weights_cpu_backup"] = enable_weights_cpu_backup
+            logger.info(f"launch server self.rollout_mode: {self.rollout_mode}, raw enable_weights_cpu_backup: {enable_weights_cpu_backup}") # DEBUG
+            # patch for DeepSeek-V2-Lite
+            if "deepseek-v2-lite" in self.model_config.local_path.lower():
+                args["enable_weights_cpu_backup"] = True
+                logger.warning(f"set enable_weights_cpu_backup args to True")
 
         if self.config.enable_rollout_routing_replay:
             args.update({"enable_return_routed_experts": True})
@@ -243,6 +254,7 @@ class SGLangHttpServer:
 
             # Enable weights CPU backup for sglang >= 0.5.6
             if sglang.__version__ >= "0.5.6":
+                assert 1==2, "sglang.__version__ >= 0.5.6 branch"
                 args["enable_weights_cpu_backup"] = True
                 args["enable_draft_weights_cpu_backup"] = True
 
@@ -374,7 +386,7 @@ class SGLangHttpServer:
 
         output = await self.tokenizer_manager.generate_request(generate_request, None).__anext__()
 
-        logger.warning(f"SGLangHttpServer generate FUNC, tokenizer_manager.generate_request FINISH!") # DEBUG
+        # logger.warning(f"SGLangHttpServer generate FUNC, tokenizer_manager.generate_request FINISH!") # DEBUG
 
         if return_logprob:
             output_token_logprobs = output["meta_info"]["output_token_logprobs"]
