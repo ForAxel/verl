@@ -407,7 +407,7 @@ class MegatronPPOActor(BasePPOActor):
         """
         # broadcast from last pp rank to all other pp ranks
         # TODO: actually, we just need to control the sampling order.
-        data.to(get_device_id())
+        # data.to(get_device_id())
         data.batch = data.batch.contiguous()
         mini_batch = data
         broadcast_dict_tensor(
@@ -415,9 +415,9 @@ class MegatronPPOActor(BasePPOActor):
             src=mpu.get_pipeline_model_parallel_last_rank(),
             group=mpu.get_pipeline_model_parallel_group(),
         )
-        mini_batch.to("cpu")
+        # mini_batch.to("cpu")
         # split into micro-batches
-        mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
+        # mini_batch.batch["attention_mask"] = mini_batch.batch["attention_mask"].to(bool)
         self.has_multi_modal_inputs = "multi_modal_inputs" in mini_batch.non_tensor_batch.keys()
         if self.has_multi_modal_inputs:
             mini_batch.batch["multi_modal_inputs"] = mini_batch.non_tensor_batch["multi_modal_inputs"]
