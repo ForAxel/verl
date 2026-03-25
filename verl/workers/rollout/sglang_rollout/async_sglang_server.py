@@ -205,11 +205,13 @@ class SGLangHttpServer:
 
         args["disable_overlap_schedule"] = True  # ATTN 禁用 overlap
         args["disable_cuda_graph"] = False # ATTN 禁用 cuda_graph
+        args["cuda_graph_max_bs"] = 64 # 最大 cuda graph batchSize
         args["disable_custom_all_reduce"] = False # ATTN 禁用 custom_all_reduce
         # args["enable_single_batch_overlap"] = True
         args["chunked_prefill_size"] = -1
 
-        if "deepseek-v2" in self.model_config.local_path.lower():
+        # MoE config
+        if "deepseek-v2" in self.model_config.local_path.lower() or "qwen3-30b" in self.model_config.local_path.lower():
             args["enable_dp_attention"] = True
             args["moe_runner_backend"] = "deep_gemm"
 
