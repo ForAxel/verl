@@ -84,7 +84,7 @@ python3 -u -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.val_kwargs.temperature=0.8 \
     actor_rollout_ref.rollout.val_kwargs.top_k=50 \
     actor_rollout_ref.rollout.val_kwargs.top_p=0.9 \
-    actor_rollout_ref.rollout.free_cache_engine=False \
+    actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.ref.megatron.pipeline_model_parallel_size=8 \
     actor_rollout_ref.ref.megatron.tensor_model_parallel_size=1 \
@@ -94,12 +94,12 @@ python3 -u -m verl.trainer.main_ppo \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger='["console"]' \
-    trainer.project_name='verl_grpo_example_gsm8k_math' \
-    trainer.experiment_name='DeepSeek-V2-Lite_megatron_sglang' \
+    trainer.project_name='verl_grpo_DeepSeek-V2_4K' \
+    trainer.experiment_name='DeepSeek-V2_megatron_sglang' \
     trainer.n_gpus_per_node=8 \
     trainer.val_before_train=False \
     trainer.nnodes=16 \
     trainer.save_freq=100 \
     trainer.test_freq=100 \
     trainer.total_epochs=10 $@ \
-    > ../../logs/236B/DeepSeek-V2_ppo_node16_1024-4096.log 2>&1 
+    > ../../logs/236B/DeepSeek-V2_ppo_node16_1024-4096.success.log 2>&1 
