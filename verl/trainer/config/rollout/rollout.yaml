@@ -114,7 +114,7 @@ over_sample_rate: 0
 # Whether to wake up inference engine in multi-stage for SGLang
 # to reduce peak memory during training-rollout transition.
 # This is only effective for SGLang rollout.
-multi_stage_wake_up: false
+multi_stage_wake_up: true #false
 
 # Extra inference engine arguments (vllm, sglang, trtllm), please refer vllm/sglang/trtllm official doc for detail
 engine_kwargs:

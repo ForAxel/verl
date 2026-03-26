@@ -205,7 +205,7 @@ class SGLangHttpServer:
 
         args["disable_overlap_schedule"] = True  # ATTN 禁用 overlap
         args["disable_cuda_graph"] = False # ATTN 禁用 cuda_graph
-        args["cuda_graph_max_bs"] = 64 # 最大 cuda graph batchSize
+        args["cuda_graph_max_bs"] = 256 # 最大 cuda graph batchSize
         args["disable_custom_all_reduce"] = False # ATTN 禁用 custom_all_reduce
         # args["enable_single_batch_overlap"] = True
         args["chunked_prefill_size"] = -1
@@ -236,10 +236,6 @@ class SGLangHttpServer:
             enable_weights_cpu_backup = True if self.rollout_mode == RolloutMode.COLOCATED else False
             args["enable_weights_cpu_backup"] = enable_weights_cpu_backup
             logger.info(f"launch server self.rollout_mode: {self.rollout_mode}, raw enable_weights_cpu_backup: {enable_weights_cpu_backup}") # DEBUG
-            # patch for DeepSeek-V2-Lite
-            if "deepseek-v2-lite" in self.model_config.local_path.lower():
-                args["enable_weights_cpu_backup"] = True
-                logger.warning(f"set enable_weights_cpu_backup args to True")
 
         if self.config.enable_rollout_routing_replay:
             args.update({"enable_return_routed_experts": True})
